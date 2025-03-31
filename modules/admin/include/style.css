@@ -1,0 +1,19 @@
+.sidebar {
+    transition: all 0.3s;
+}
+
+.sidebar-collapsed {
+    width: 80px;
+}
+
+.sidebar-collapsed .sidebar-text {
+    display: none;
+}
+
+.sidebar-collapsed .logo-text {
+    display: none;
+}
+
+.sidebar-collapsed .menu-item {
+    justify-content: center;
+}
