@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validate CSRF token
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
         set_flash_message('Invalid request', 'error');
-        header('Location: register.php');
+        header('Location: /register.php');
         exit();
     }
 
@@ -49,18 +49,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $result = register_user($username, $email, $password, $first_name, $last_name, $phone);
 
+            // In the registration success block:
             if ($result['success']) {
-                // Auto-login after registration
-                login_user($username, $password);
+                // Generate verification token
+                $verification_token = bin2hex(random_bytes(32));
+                $verification_expiry = date('Y-m-d H:i:s', strtotime('+24 hours'));
 
-                // Send welcome email (pseudo-code)
-                // send_welcome_email($email, $first_name);
+                // Store token in database
+                $conn = db_connect();
+                $stmt = $conn->prepare("UPDATE users SET verification_token = ?, verification_token_expiry = ? WHERE username = ?");
+                $stmt->bind_param("sss", $verification_token, $verification_expiry, $username);
+                $stmt->execute();
 
-                set_flash_message('Registration successful! Welcome to CaféDelight', 'success');
-                header('Location: ../../index.php');
-                exit();
-            } else {
-                set_flash_message($result['message'], 'error');
+                // Send verification email
+                $email_sent = send_verification_email($email, $first_name, $verification_token);
+
+                if ($email_sent) {
+                    set_flash_message('Registration successful! Please check your email to verify your account.', 'success');
+                    header('Location: login.php');
+                    exit();
+                } else {
+                    // Store the verification token in session to allow manual verification
+                    $_SESSION['manual_verification_token'] = $verification_token;
+                    $_SESSION['manual_verification_email'] = $email;
+
+                    set_flash_message('Registration successful! We encountered an issue sending your verification email. You can:', 'warning');
+                    header('Location: manual-verification.php');
+                    exit();
+                }
             }
         }
     }

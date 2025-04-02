@@ -13,7 +13,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 
 // Redirect if already logged in
 if (is_logged_in()) {
-    $redirect_to = '/index.php'; // Default redirect for customers
+    $redirect_to = '/../index.php'; // Default redirect for customers
 
     if (isset($_SESSION['is_staff'])) {
         $redirect_to = 'staff/dashboard.php'; // Staff dashboard
@@ -30,12 +30,17 @@ if (!isset($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
+// Verification CSRF token
+if (!isset($_SESSION['verify_csrf_token'])) {
+    $_SESSION['verify_csrf_token'] = bin2hex(random_bytes(32));
+}
+
 // Handle login attempt
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
     // Validate CSRF token
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
         set_flash_message('Invalid request', 'error');
-        header('Location: login.php');
+        header('Location: /login.php');
         exit();
     }
 
@@ -59,6 +64,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = login_user($username, $password);
 
         if ($result['success']) {
+            // Check if email is verified
+            $conn = db_connect();
+            $stmt = $conn->prepare("SELECT email_verified FROM users WHERE username = ?");
+            $stmt->bind_param("s", $username);
+            $stmt->execute();
+            $verification_result = $stmt->get_result();
+
+            if ($verification_result->num_rows === 1) {
+                $user = $verification_result->fetch_assoc();
+
+                if (!$user['email_verified']) {
+                    // Log out the user if not verified
+                    logout_user();
+                    set_flash_message('Your email is not verified. Please check your inbox for the verification link.', 'error');
+                    header('Location: login.php');
+                    exit();
+                }
+            }
+
             // Reset attempts on success
             unset($_SESSION['login_attempts']);
 
@@ -110,6 +134,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Track failed attempts
             $_SESSION['login_attempts'] = ($_SESSION['login_attempts'] ?? 0) + 1;
+
+            // Check if the failure might be due to unverified email
+            $conn = db_connect();
+            $stmt = $conn->prepare("SELECT email_verified FROM users WHERE username = ?");
+            $stmt->bind_param("s", $username);
+            $stmt->execute();
+            $verification_result = $stmt->get_result();
+
+            if ($verification_result->num_rows === 1) {
+                $user = $verification_result->fetch_assoc();
+                if (!$user['email_verified']) {
+                    set_flash_message('Your email is not verified. Please check your inbox for the verification link.', 'error');
+                    header('Location: login.php');
+                    exit();
+                }
+            }
+
             set_flash_message($result['message'], 'error');
         }
     }
@@ -225,6 +266,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 Sign In
             </button>
         </form>
+
+        <div class="mt-4 text-center">
+            <p class="text-gray-600">Didn't receive verification email?</p>
+            <form action="./resend-verification.php" method="POST" class="mt-2">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['verify_csrf_token']); ?>">
+                <div class="flex">
+                    <input type="email" name="email" required placeholder="Your email address"
+                        class="flex-grow px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-medium py-2 px-4 rounded-r-md transition duration-300">
+                        Resend
+                    </button>
+                </div>
+            </form>
+        </div>
 
         <div class="mt-6 text-center">
             <?php if (isset($_GET['admin']) && $_GET['admin'] == 1): ?>

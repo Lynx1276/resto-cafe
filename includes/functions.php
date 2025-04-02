@@ -1,4 +1,11 @@
 <?php
+include_once __DIR__ . '/../config/database.php';
+
+require __DIR__ . '/../libs/PHPMailer/src/PHPMailer.php';
+require __DIR__ . '/../libs/PHPMailer/src/SMTP.php';
+require __DIR__ . '/../libs/PHPMailer/src/Exception.php';
+
+
 // Enhanced session handling with more secure defaults
 if (session_status() === PHP_SESSION_NONE) {
     session_start([
@@ -11,7 +18,214 @@ if (session_status() === PHP_SESSION_NONE) {
     ]);
 }
 
-include_once __DIR__ . '/../config/database.php';
+function send_verification_email($email, $name, $verification_token)
+{
+    error_log("Attempting to send verification email to: $email");
+    $mail_config = include __DIR__ . '/../config/email.php';
+
+    if (empty($mail_config['smtp']['host'])) {
+        error_log("SMTP Configuration Error: Host not configured");
+        return false;
+    }
+
+    $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+
+    try {
+        // Enable verbose debugging
+        $mail->SMTPDebug = 4; // Maximum verbosity
+        $debugOutput = "";
+        $mail->Debugoutput = function ($str, $level) use (&$debugOutput) {
+            error_log("PHPMailer: $str");
+            $debugOutput .= "$level: $str\n";
+        };
+
+        // Server settings
+        error_log("Configuring SMTP with: " . print_r($mail_config['smtp'], true));
+        $mail->isSMTP();
+        $mail->Host       = $mail_config['smtp']['host'];
+        $mail->SMTPAuth   = true;
+        $mail->Username   = $mail_config['smtp']['username'];
+        $mail->Password   = $mail_config['smtp']['password'];
+        $mail->SMTPSecure = $mail_config['smtp']['encryption'];
+        $mail->Port       = $mail_config['smtp']['port'];
+        $mail->Timeout    = 10; // 10 seconds timeout
+
+        // Recipients
+        $mail->setFrom($mail_config['smtp']['from'], $mail_config['smtp']['from_name']);
+        $mail->addAddress($email, $name);
+        error_log("Recipient set: $email");
+
+        // Generate login token for auto-login after verification
+        $login_token = bin2hex(random_bytes(32));
+        $login_token_hash = password_hash($login_token, PASSWORD_DEFAULT);
+        $login_token_expiry = date('Y-m-d H:i:s', time() + 300); // 5 minutes expiry
+
+        // Store login token in database
+        $conn = db_connect();
+        $stmt = $conn->prepare("UPDATE users SET login_token = ?, login_token_expiry = ? WHERE email = ?");
+        $stmt->bind_param("sss", $login_token_hash, $login_token_expiry, $email);
+        $stmt->execute();
+
+        // Content
+        $mail->isHTML(true);
+        $mail->Subject = 'Verify your CaféDelight account';
+
+        $verification_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . "/modules/auth/verify.php?token=" . urlencode($verification_token) . "&login_token=" . urlencode($login_token);
+
+        $mail->Body = "
+            <h1 style='color: #D97706;'>Welcome to CaféDelight, $name!</h1>
+            <p>Please click the button below to verify your email address and automatically log in:</p>
+            
+            <div style='margin: 25px 0; text-align: center;'>
+                <a href='$verification_url' style='
+                    background-color: #D97706;
+                    color: white;
+                    padding: 12px 24px;
+                    border: none;
+                    border-radius: 4px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    text-decoration: none;
+                    display: inline-block;
+                '>Verify & Log In</a>
+            </div>
+            
+            <p style='font-size: 0.9em; color: #666;'>
+                If the button doesn't work, copy this link to your browser:<br>
+                <code style='background: #f0f0f0; padding: 2px 4px; border-radius: 3px; word-break: break-all;'>$verification_url</code>
+            </p>
+            
+            <p style='font-size: 0.9em; color: #666;'>
+                <strong>Note:</strong> This link will expire in 5 minutes for security reasons.
+            </p>
+        ";
+
+        $mail->AltBody = "Welcome to CaféDelight!\n\nHello $name,\n\nPlease click the following link to verify your email and log in:\n$verification_url\n\nThis link expires in 5 minutes.";
+
+        error_log("Attempting to send email...");
+        if (!$mail->send()) {
+            error_log("Email sending failed: " . $mail->ErrorInfo);
+            error_log("Full debug output:\n$debugOutput");
+            return false;
+        }
+
+        error_log("Email sent successfully to $email");
+        return true;
+    } catch (Exception $e) {
+        error_log("Exception while sending email: " . $e->getMessage());
+        error_log("PHPMailer Error: " . $mail->ErrorInfo);
+        error_log("Full debug output:\n$debugOutput");
+        return false;
+    }
+}
+
+function resend_verification_email($email)
+{
+    $conn = db_connect();
+
+    // Check if user exists and isn't already verified
+    $stmt = $conn->prepare("SELECT user_id, first_name, email_verified FROM users WHERE email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows !== 1) {
+        return ['success' => false, 'message' => 'Email not found'];
+    }
+
+    $user = $result->fetch_assoc();
+
+    if ($user['email_verified']) {
+        return ['success' => false, 'message' => 'Email already verified'];
+    }
+
+    // Generate new tokens
+    $token = bin2hex(random_bytes(32));
+    $expiry = date('Y-m-d H:i:s', time() + 86400); // 24 hours
+    $csrf_token = bin2hex(random_bytes(32));
+
+    // Update tokens in database
+    $stmt = $conn->prepare("UPDATE users SET 
+                          email_verification_token = ?,
+                          email_verification_expiry = ?,
+                          email_verification_csrf = ?
+                          WHERE user_id = ?");
+    $stmt->bind_param("sssi", $token, $expiry, $csrf_token, $user['user_id']);
+
+    if (!$stmt->execute()) {
+        error_log("Failed to update verification tokens for $email");
+        return ['success' => false, 'message' => 'Failed to resend verification'];
+    }
+
+    // Send new verification email
+    $verification_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://" .
+        $_SERVER['HTTP_HOST'] .
+        "/../modules/auth/verify.php";
+
+    $subject = "Verify Your CaféDelight Account";
+    $message = '
+    <html>
+    <body style="font-family: Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd;">
+            <h1 style="color: #d97706;">Welcome to CaféDelight, ' . htmlspecialchars($user['first_name']) . '!</h1>
+            <p>Please verify your email address to complete your registration:</p>
+            
+            <form action="' . $verification_url . '" method="POST" style="margin: 20px 0;">
+                <input type="hidden" name="token" value="' . $token . '">
+                <input type="hidden" name="csrf_token" value="' . $csrf_token . '">
+                <input type="hidden" name="email" value="' . htmlspecialchars($email) . '">
+                <button type="submit" style="background-color: #d97706; color: white; 
+                        padding: 12px 24px; border: none; border-radius: 4px; 
+                        cursor: pointer; font-size: 16px;">
+                    Verify My Email Address
+                </button>
+            </form>
+            
+            <p style="margin-top: 20px; font-size: 12px; color: #666;">
+                <strong>Note:</strong> This verification link will expire in 24 hours.
+                If you didn\'t create this account, please ignore this email.
+            </p>
+        </div>
+    </body>
+    </html>
+    ';
+
+    if (!send_verification_email($email, htmlspecialchars($user['first_name']), $token)) {
+        return ['success' => false, 'message' => 'Failed to send verification email'];
+    }
+
+    return ['success' => true, 'message' => 'Verification email resent'];
+}
+
+function log_email_verification($email, $token, $status)
+{
+    $conn = db_connect();
+    $stmt = $conn->prepare("INSERT INTO email_logs (email, token, status) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $email, $token, $status);
+    $stmt->execute();
+}
+
+function is_verified_user($user_id)
+{
+    $conn = db_connect();
+    $stmt = $conn->prepare("SELECT email_verified FROM users WHERE user_id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 1) {
+        $user = $result->fetch_assoc();
+        return (bool)$user['email_verified'];
+    }
+    return false;
+}
+
+// Usage in your auth check:
+if (is_logged_in() && !is_verified_user($_SESSION['user_id'])) {
+    // Force verification
+    header('Location: /../../modules/auth/verify.php');
+    exit();
+}
 
 // Check if user is logged in
 function is_logged_in()
@@ -156,7 +370,7 @@ function require_login()
 {
     if (!is_logged_in()) {
         $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
-        header('Location: /login.php');
+        header('Location: /../../index.php');
         exit();
     }
 }

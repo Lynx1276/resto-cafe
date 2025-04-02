@@ -16,7 +16,7 @@ if (!$admin) {
 $page_title = "Reservations";
 $current_page = "reservations";
 
-include  './include/header.php';
+include __DIR__ . './include/header.php';
 
 // Handle reservation status updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_reservation'])) {
@@ -80,7 +80,7 @@ $tables = fetch_all("SELECT table_id, table_number, capacity FROM restaurant_tab
 <body class="bg-gray-100 font-sans">
     <div class="flex h-screen">
         <!-- Sidebar -->
-        <?php include './include/sidebar.php'; ?>
+        <?php include __DIR__ . './include/sidebar.php'; ?>
 
         <!-- Main Content -->
         <div class="flex-1 flex flex-col overflow-hidden">
