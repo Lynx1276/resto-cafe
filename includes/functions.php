@@ -18,7 +18,7 @@ if (session_status() === PHP_SESSION_NONE) {
     ]);
 }
 
-function send_verification_email($email, $name, $verification_token)
+function send_verification_email($email, $name, $verification_token, $login_token)
 {
     error_log("Attempting to send verification email to: $email");
     $mail_config = include __DIR__ . '/../config/email.php';
@@ -70,8 +70,12 @@ function send_verification_email($email, $name, $verification_token)
         $mail->isHTML(true);
         $mail->Subject = 'Verify your CaféDelight account';
 
-        $verification_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . "/modules/auth/verify.php?token=" . urlencode($verification_token) . "&login_token=" . urlencode($login_token);
-
+        $verification_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://" .
+            $_SERVER['HTTP_HOST'] .
+            "/modules/auth/verify.php?" . http_build_query([
+                'token' => $verification_token,
+                'login_token' => $login_token
+            ]);
         $mail->Body = "
             <h1 style='color: #D97706;'>Welcome to CaféDelight, $name!</h1>
             <p>Please click the button below to verify your email address and automatically log in:</p>
@@ -190,7 +194,7 @@ function resend_verification_email($email)
     </html>
     ';
 
-    if (!send_verification_email($email, htmlspecialchars($user['first_name']), $token)) {
+    if (!send_verification_email($email, htmlspecialchars($user['first_name']), $token, $csrf_token)) {
         return ['success' => false, 'message' => 'Failed to send verification email'];
     }
 

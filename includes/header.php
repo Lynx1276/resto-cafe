@@ -130,7 +130,7 @@ if (session_status() === PHP_SESSION_NONE) {
                 <li><a href="#about" class="block py-2 px-4 text-sm hover:bg-amber-50">About</a></li>
                 <li><a href="#contact" class="block py-2 px-4 text-sm hover:bg-amber-50">Contact</a></li>
                 <?php if (is_logged_in()): ?>
-                    <li><a href="modules/customers/dashboard.php" class="block py-2 px-4 text-sm hover:bg-amber-50">Dashboard</a></li>
+                    <li><a href="/modules/customers/dashboard.php" class="block py-2 px-4 text-sm hover:bg-amber-50">Dashboard</a></li>
                     <li><a href="modules/auth/logout.php" class="block py-2 px-4 text-sm hover:bg-amber-50">Logout</a></li>
                 <?php else: ?>
                     <li><a href="modules/auth/login.php" class="block py-2 px-4 text-sm hover:bg-amber-50">Log In</a></li>

@@ -57,12 +57,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Store token in database
                 $conn = db_connect();
-                $stmt = $conn->prepare("UPDATE users SET verification_token = ?, verification_token_expiry = ? WHERE username = ?");
-                $stmt->bind_param("sss", $verification_token, $verification_expiry, $username);
+                $stmt = $conn->prepare("UPDATE users SET verification_token = ?, verification_token_expiry = ?, login_token = ? WHERE username = ?");
+                $stmt->bind_param("ssss", $verification_token, $verification_expiry, $login_token, $username);
                 $stmt->execute();
 
                 // Send verification email
-                $email_sent = send_verification_email($email, $first_name, $verification_token);
+                $email_sent = send_verification_email($email, $first_name, $verification_token, $login_token);
 
                 if ($email_sent) {
                     set_flash_message('Registration successful! Please check your email to verify your account.', 'success');

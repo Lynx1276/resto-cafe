@@ -1,12 +1,5 @@
 <?php
-// Start session securely
-if (session_status() === PHP_SESSION_NONE) {
-    session_start([
-        'cookie_secure' => true,
-        'cookie_httponly' => true,
-        'cookie_samesite' => 'Strict'
-    ]);
-}
+require_once __DIR__ . '/../../includes/security.php';
 
 require_once __DIR__ . '/../../includes/functions.php';
 
@@ -15,7 +8,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 if (is_logged_in()) {
     $redirect_to = '/../index.php'; // Default redirect for customers
 
-    if (isset($_SESSION['is_staff'])) {
+    if (isset($_SESSION['is_staff']) || isset($_SESSION['is_manager'])) {
         $redirect_to = 'staff/dashboard.php'; // Staff dashboard
     } elseif (isset($_SESSION['is_admin'])) {
         $redirect_to = 'admin/dashboard.php'; // Admin dashboard
@@ -40,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
     // Validate CSRF token
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
         set_flash_message('Invalid request', 'error');
-        header('Location: /login.php');
+        header('Location: login.php');
         exit();
     }
 
@@ -166,128 +159,183 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
     <title>Login - CaféDelight</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        amber: {
+                            light: '#FDE68A',
+                            DEFAULT: '#D97706',
+                            dark: '#B45309',
+                            darkest: '#78350F'
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'inner-lg': 'inset 0 4px 8px 0 rgba(0, 0, 0, 0.12)'
+                    }
+                }
+            }
+        }
+    </script>
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
-            background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('assets/images/cafe-bg.jpg');
+            background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('assets/images/cafe-bg.jpg');
             background-size: cover;
             background-position: center;
+            background-attachment: fixed;
             min-height: 100vh;
+            font-family: 'Inter', sans-serif;
         }
 
-        /* Role selection tabs */
-        .role-tabs {
-            display: flex;
-            border-bottom: 1px solid #e5e7eb;
-            margin-bottom: 1.5rem;
+        .amber-gradient {
+            background: linear-gradient(135deg, #F59E0B 0%, #B45309 100%);
         }
 
-        .role-tab {
-            flex: 1;
-            text-align: center;
-            padding: 0.75rem 0;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            transition: all 0.2s;
+        .login-container {
+            backdrop-filter: blur(8px);
+            background-color: rgba(255, 255, 255, 0.85);
+            border-radius: 1rem;
+            overflow: hidden;
         }
 
-        .role-tab.active {
-            border-bottom-color: #d97706;
-            color: #d97706;
-            font-weight: 500;
+        .input-field:focus {
+            border-color: #D97706;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
         }
 
-        .role-tab:hover:not(.active) {
-            background-color: #f3f4f6;
+        .login-btn {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
-        /* Admin login notice */
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+        }
+
         .admin-notice {
-            background-color: #fef3c7;
-            border-left: 4px solid #d97706;
-            padding: 0.75rem;
-            margin-bottom: 1rem;
-            border-radius: 0.375rem;
-            font-size: 0.875rem;
+            border-left: 4px solid #D97706;
+        }
+
+        .switch-panel {
+            transition: opacity 0.3s ease;
+        }
+
+        .password-toggle {
+            transition: color 0.2s ease;
+        }
+
+        .password-toggle:hover {
+            color: #D97706;
         }
     </style>
 </head>
 
-<body class="flex items-center justify-center">
-    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-        <div class="text-center mb-8">
-            <i class="fas fa-mug-hot text-amber-600 text-4xl mb-2"></i>
-            <h1 class="text-3xl font-bold text-gray-800">Welcome Back</h1>
-            <p class="text-gray-600">Sign in to your CaféDelight account</p>
+<body class="flex items-center justify-center p-4 md:p-0">
+    <div class="login-container shadow-2xl w-full max-w-md flex flex-col">
+        <!-- Logo Header -->
+        <div class="amber-gradient p-6 text-center">
+            <div class="bg-white bg-opacity-20 p-4 inline-block rounded-full shadow-inner-lg mb-2">
+                <i class="fas fa-mug-hot text-white text-3xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-white mt-2">CaféDelight</h1>
+            <p class="text-amber-light text-sm mt-1">Brewing moments, serving memories</p>
         </div>
 
-        <?php display_flash_message(); ?>
+        <!-- Login Form Container -->
+        <div class="p-8">
+            <h2 class="text-2xl font-semibold text-amber-darkest mb-1">Welcome Back</h2>
+            <p class="text-gray-600 text-sm mb-6">Sign in to your account to continue</p>
 
-        <!-- Admin login notice (only shown if trying to access admin page) -->
-        <?php if (isset($_GET['admin']) && $_GET['admin'] == 1): ?>
-            <div class="admin-notice">
-                <i class="fas fa-shield-alt mr-1"></i> You are accessing the admin login. Staff members should use their regular credentials.
-            </div>
-        <?php endif; ?>
+            <?php display_flash_message(); ?>
 
-        <form action="login.php<?php echo isset($_GET['admin']) ? '?admin=1' : ''; ?>" method="POST" class="space-y-6">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
-
-            <div>
-                <label for="username" class="block text-gray-700 mb-2">Username</label>
-                <input type="text" id="username" name="username" required
-                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
-            </div>
-
-            <div>
-                <label for="password" class="block text-gray-700 mb-2">Password</label>
-                <div class="relative">
-                    <input type="password" id="password" name="password" required
-                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500">
-                    <button type="button" class="absolute right-3 top-2 text-gray-500 hover:text-gray-700"
-                        onclick="togglePasswordVisibility('password')">
-                        <i class="far fa-eye"></i>
-                    </button>
+            <!-- Admin login notice -->
+            <?php if (isset($_GET['admin']) && $_GET['admin'] == 1): ?>
+                <div class="admin-notice bg-amber-50 p-4 rounded-lg mb-6 text-sm flex items-start">
+                    <i class="fas fa-shield-alt text-amber-dark mt-0.5 mr-3"></i>
+                    <p class="text-amber-darkest">You are accessing the admin login. Staff members should use their regular credentials.</p>
                 </div>
-            </div>
+            <?php endif; ?>
 
-            <div class="flex items-center justify-between">
+            <form action="login.php<?php echo isset($_GET['admin']) ? '?admin=1' : ''; ?>" method="POST" class="space-y-5">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-1.5">Username</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                            <i class="fas fa-user"></i>
+                        </span>
+                        <input type="text" id="username" name="username" required
+                            class="input-field pl-10 w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none transition-colors duration-200"
+                            value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <a href="forgot-password.php" class="text-amber-dark hover:text-amber-darkest text-xs font-medium transition-colors duration-200">Forgot password?</a>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                            <i class="fas fa-lock"></i>
+                        </span>
+                        <input type="password" id="password" name="password" required
+                            class="input-field pl-10 w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none transition-colors duration-200">
+                        <button type="button" class="password-toggle absolute right-3 top-3 text-gray-400"
+                            onclick="togglePasswordVisibility('password')">
+                            <i class="far fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="flex items-center">
                     <input type="checkbox" id="remember" name="remember"
                         class="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded">
-                    <label for="remember" class="ml-2 block text-gray-700">Remember me</label>
+                    <label for="remember" class="ml-2 block text-sm text-gray-700">Remember me</label>
                 </div>
-                <a href="forgot-password.php" class="text-amber-600 hover:text-amber-500 text-sm">Forgot password?</a>
+
+                <button type="submit"
+                    class="login-btn w-full amber-gradient text-white font-medium py-2.5 px-4 rounded-lg">
+                    Sign In
+                </button>
+            </form>
+
+            <!-- Verification Link Section -->
+            <div class="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <h3 class="text-sm font-medium text-amber-darkest mb-2">Need a verification link?</h3>
+                <form action="resend-verification.php" method="POST" id="resendVerificationForm">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+
+                    <div class="relative mb-3">
+                        <input type="email" id="resend_email" name="email" required placeholder="Enter your email address"
+                            class="input-field w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none">
+                    </div>
+
+                    <button type="submit"
+                        class="w-full py-2 px-4 border border-amber-500 bg-white text-amber-600 text-sm font-medium rounded-lg hover:bg-amber-50 transition-colors duration-200">
+                        Resend Verification Email
+                    </button>
+                </form>
             </div>
 
-            <button type="submit" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-medium py-2 px-4 rounded-md transition duration-300">
-                Sign In
-            </button>
-        </form>
-
-        <div class="mt-4 text-center">
-            <p class="text-gray-600">Didn't receive verification email?</p>
-            <form action="./resend-verification.php" method="POST" class="mt-2">
-                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['verify_csrf_token']); ?>">
-                <div class="flex">
-                    <input type="email" name="email" required placeholder="Your email address"
-                        class="flex-grow px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-amber-500">
-                    <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-medium py-2 px-4 rounded-r-md transition duration-300">
-                        Resend
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <div class="mt-6 text-center">
-            <?php if (isset($_GET['admin']) && $_GET['admin'] == 1): ?>
-                <p class="text-gray-600">Not an admin? <a href="login.php" class="text-amber-600 hover:text-amber-500 font-medium">Regular login</a></p>
-            <?php else: ?>
-                <p class="text-gray-600">Don't have an account? <a href="register.php" class="text-amber-600 hover:text-amber-500 font-medium">Sign up</a></p>
-                <p class="text-gray-600 mt-2">Staff member? <a href="login.php?admin=1" class="text-amber-600 hover:text-amber-500 font-medium">Admin login</a></p>
-            <?php endif; ?>
+            <!-- Footer Links -->
+            <div class="mt-6 text-center">
+                <?php if (isset($_GET['admin']) && $_GET['admin'] == 1): ?>
+                    <p class="text-gray-600 text-sm">Not an admin? <a href="login.php" class="text-amber-600 hover:text-amber-700 font-medium">Regular login</a></p>
+                <?php else: ?>
+                    <p class="text-gray-600 text-sm">Don't have an account? <a href="register.php" class="text-amber-600 hover:text-amber-700 font-medium">Sign up</a></p>
+                    <p class="text-gray-600 text-sm mt-2">Staff member? <a href="login.php?admin=1" class="text-amber-600 hover:text-amber-700 font-medium">Admin login</a></p>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 
