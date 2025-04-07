@@ -7,7 +7,7 @@ return [
         'port' => 465,
         'encryption' => 'ssl',
         'from' => 'mlbausa84@gmail.com',
-        'from_name' => 'CaféDelight'
+        'from_name' => 'Casa Baraka'
     ]
 ];
 ?>

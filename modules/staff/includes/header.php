@@ -12,7 +12,7 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-i
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($page_title); ?> | CaféDelight</title>
+    <title><?php echo htmlspecialchars($page_title); ?> | Casa Baraka</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->

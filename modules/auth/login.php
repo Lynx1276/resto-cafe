@@ -156,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - CaféDelight</title>
+    <title>Login - Casa Baraka</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -245,7 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
             <div class="bg-white bg-opacity-20 p-4 inline-block rounded-full shadow-inner-lg mb-2">
                 <i class="fas fa-mug-hot text-white text-3xl"></i>
             </div>
-            <h1 class="text-3xl font-bold text-white mt-2">CaféDelight</h1>
+            <h1 class="text-3xl font-bold text-white mt-2">Casa Baraka</h1>
             <p class="text-amber-light text-sm mt-1">Brewing moments, serving memories</p>
         </div>
 

@@ -16,7 +16,7 @@ if (session_status() === PHP_SESSION_NONE) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo isset($page_title) ? htmlspecialchars($page_title) . ' - CaféDelight' : 'CaféDelight - Your Cozy Corner'; ?></title>
+    <title><?php echo isset($page_title) ? htmlspecialchars($page_title) . ' - Casa Baraka' : 'Casa Baraka - Your Cozy Corner'; ?></title>
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -93,7 +93,7 @@ if (session_status() === PHP_SESSION_NONE) {
                         <!-- Logo -->
                         <a href="/" class="flex items-center py-4 px-2">
                             <i class="fas fa-mug-hot text-amber-600 text-2xl mr-1"></i>
-                            <span class="font-semibold text-amber-600 text-lg">CaféDelight</span>
+                            <span class="font-semibold text-amber-600 text-lg">Casa Baraka</span>
                         </a>
                     </div>
                     <!-- Primary Navigation -->

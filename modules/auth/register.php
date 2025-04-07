@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - CaféDelight</title>
+    <title>Register - Casa Baraka</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome for icons -->
@@ -115,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="text-center mb-8">
             <i class="fas fa-mug-hot text-amber-600 text-4xl mb-2"></i>
             <h1 class="text-3xl font-bold text-gray-800">Create Account</h1>
-            <p class="text-gray-600">Join CaféDelight today</p>
+            <p class="text-gray-600">Join Casa Baraka today</p>
         </div>
 
         <?php display_flash_message(); ?>

@@ -13,7 +13,7 @@ require_once './includes/functions.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CaféDelight - Your Cozy Corner</title>
+    <title>Casa Baraka - Your Cozy Corner</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome for icons -->
@@ -52,7 +52,7 @@ require_once './includes/functions.php';
                         <!-- Logo -->
                         <a href="index.php" class="flex items-center py-4 px-2">
                             <i class="fas fa-mug-hot text-amber-600 text-2xl mr-1"></i>
-                            <span class="font-semibold text-amber-600 text-lg">CaféDelight</span>
+                            <span class="font-semibold text-amber-600 text-lg">Casa Baraka</span>
                         </a>
                     </div>
                     <!-- Primary Navigation -->
@@ -107,7 +107,7 @@ require_once './includes/functions.php';
     <!-- Hero Section -->
     <section class="hero-section flex items-center justify-center">
         <div class="text-center px-6">
-            <h1 class="text-4xl md:text-6xl font-bold text-white mb-4">Welcome to CaféDelight</h1>
+            <h1 class="text-4xl md:text-6xl font-bold text-white mb-4">Welcome to Casa Baraka</h1>
             <p class="text-xl md:text-2xl text-white mb-8">Your cozy corner for delicious coffee and treats</p>
             <a href="#menu" class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-6 rounded-full transition duration-300 inline-block">Explore Our Menu</a>
         </div>
@@ -194,13 +194,13 @@ require_once './includes/functions.php';
         <div class="container mx-auto px-4">
             <div class="flex flex-col md:flex-row items-center">
                 <div class="md:w-1/2 mb-8 md:mb-0 md:pr-8">
-                    <img src="https://via.placeholder.com/600x400" alt="About CaféDelight" class="rounded-lg shadow-md w-full">
+                    <img src="https://via.placeholder.com/600x400" alt="About Casa Baraka" class="rounded-lg shadow-md w-full">
                 </div>
                 <div class="md:w-1/2">
                     <h2 class="text-3xl font-bold mb-6">Our Story</h2>
-                    <p class="text-gray-600 mb-4">Founded in 2010, CaféDelight began as a small neighborhood coffee shop with a simple mission: to create a welcoming space where quality coffee meets community connection.</p>
+                    <p class="text-gray-600 mb-4">Founded in 2010, Casa Baraka began as a small neighborhood coffee shop with a simple mission: to create a welcoming space where quality coffee meets community connection.</p>
                     <p class="text-gray-600 mb-4">Over the years, we've grown, but our commitment to quality ingredients, skilled baristas, and a warm atmosphere remains unchanged. We source our coffee beans directly from sustainable farms, ensuring both exceptional taste and ethical practices.</p>
-                    <p class="text-gray-600 mb-6">Today, CaféDelight is proud to be your local gathering spot—a place where friendships form, ideas brew, and everyone feels at home.</p>
+                    <p class="text-gray-600 mb-6">Today, Casa Baraka is proud to be your local gathering spot—a place where friendships form, ideas brew, and everyone feels at home.</p>
                     <div class="flex flex-wrap">
                         <div class="w-1/2 md:w-1/3 mb-4">
                             <div class="font-bold text-2xl text-amber-600">12+</div>
@@ -253,7 +253,7 @@ require_once './includes/functions.php';
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star"></i>
                     </div>
-                    <p class="text-gray-600 mb-6">"I've tried coffee shops all over the city, and CaféDelight consistently has the best lattes. Their pastries are fresh and delicious too. This place is a gem!"</p>
+                    <p class="text-gray-600 mb-6">"I've tried coffee shops all over the city, and Casa Baraka consistently has the best lattes. Their pastries are fresh and delicious too. This place is a gem!"</p>
                     <div class="flex items-center">
                         <div class="w-12 h-12 rounded-full bg-gray-300 mr-4"></div>
                         <div>
@@ -272,7 +272,7 @@ require_once './includes/functions.php';
                         <i class="fas fa-star"></i>
                         <i class="fas fa-star-half-alt"></i>
                     </div>
-                    <p class="text-gray-600 mb-6">"As a remote worker, I need a reliable place with good WiFi and even better coffee. CaféDelight has become my second office. The staff is friendly and the ambiance is perfect for productivity."</p>
+                    <p class="text-gray-600 mb-6">"As a remote worker, I need a reliable place with good WiFi and even better coffee. Casa Baraka has become my second office. The staff is friendly and the ambiance is perfect for productivity."</p>
                     <div class="flex items-center">
                         <div class="w-12 h-12 rounded-full bg-gray-300 mr-4"></div>
                         <div>
@@ -319,7 +319,7 @@ require_once './includes/functions.php';
                             <i class="fas fa-envelope text-amber-600 mt-1 mr-4 text-xl"></i>
                             <div>
                                 <h4 class="font-semibold mb-1">Email</h4>
-                                <p class="text-gray-600">hello@cafedelight.com</p>
+                                <p class="text-gray-600">hello@casabarakat.com</p>
                             </div>
                         </div>
                         <div class="mt-8">

@@ -3,7 +3,7 @@
         <div class="h-0 flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
             <div class="flex items-center flex-shrink-0 px-4">
                 <i class="fas fa-mug-hot text-amber-600 text-2xl mr-2"></i>
-                <span class="text-xl font-semibold text-gray-800">CaféDelight</span>
+                <span class="text-xl font-semibold text-gray-800">Casa Baraka</span>
             </div>
             <nav class="mt-5 flex-1 px-2 space-y-1">
                 <!-- Dashboard -->

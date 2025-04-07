@@ -4,7 +4,7 @@
             <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
                 <!-- About -->
                 <div>
-                    <h3 class="text-xl font-bold mb-4">About CaféDelight</h3>
+                    <h3 class="text-xl font-bold mb-4">About Casa Baraka</h3>
                     <p class="text-gray-400">Your cozy corner for delicious coffee and treats since 2010. We source our beans from sustainable farms and bake fresh daily.</p>
                 </div>
 
@@ -34,7 +34,7 @@
                         </li>
                         <li class="flex items-center">
                             <i class="fas fa-envelope mr-2 text-amber-500"></i>
-                            hello@cafedelight.com
+                            hello@casabaraka.com
                         </li>
                     </ul>
                 </div>
@@ -60,7 +60,7 @@
 
             <!-- Copyright -->
             <div class="border-t border-gray-700 mt-8 pt-6 text-center text-gray-400">
-                <p>&copy; <?php echo date('Y'); ?> CaféDelight. All rights reserved.</p>
+                <p>&copy; <?php echo date('Y'); ?> Casa Baraka. All rights reserved.</p>
             </div>
         </div>
     </footer>

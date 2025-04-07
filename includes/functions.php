@@ -68,7 +68,7 @@ function send_verification_email($email, $name, $verification_token, $login_toke
 
         // Content
         $mail->isHTML(true);
-        $mail->Subject = 'Verify your CaféDelight account';
+        $mail->Subject = 'Verify your Casa Baraka account';
 
         $verification_url = (isset($_SERVER['HTTPS']) ? "https" : "http") . "://" .
             $_SERVER['HTTP_HOST'] .
@@ -77,7 +77,7 @@ function send_verification_email($email, $name, $verification_token, $login_toke
                 'login_token' => $login_token
             ]);
         $mail->Body = "
-            <h1 style='color: #D97706;'>Welcome to CaféDelight, $name!</h1>
+            <h1 style='color: #D97706;'>Welcome to Casa Baraka, $name!</h1>
             <p>Please click the button below to verify your email address and automatically log in:</p>
             
             <div style='margin: 25px 0; text-align: center;'>
@@ -104,7 +104,7 @@ function send_verification_email($email, $name, $verification_token, $login_toke
             </p>
         ";
 
-        $mail->AltBody = "Welcome to CaféDelight!\n\nHello $name,\n\nPlease click the following link to verify your email and log in:\n$verification_url\n\nThis link expires in 5 minutes.";
+        $mail->AltBody = "Welcome to Casa Baraka!\n\nHello $name,\n\nPlease click the following link to verify your email and log in:\n$verification_url\n\nThis link expires in 5 minutes.";
 
         error_log("Attempting to send email...");
         if (!$mail->send()) {
@@ -166,12 +166,12 @@ function resend_verification_email($email)
         $_SERVER['HTTP_HOST'] .
         "/../modules/auth/verify.php";
 
-    $subject = "Verify Your CaféDelight Account";
+    $subject = "Verify Your Casa Baraka Account";
     $message = '
     <html>
     <body style="font-family: Arial, sans-serif;">
         <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd;">
-            <h1 style="color: #d97706;">Welcome to CaféDelight, ' . htmlspecialchars($user['first_name']) . '!</h1>
+            <h1 style="color: #d97706;">Welcome to Casa Baraka, ' . htmlspecialchars($user['first_name']) . '!</h1>
             <p>Please verify your email address to complete your registration:</p>
             
             <form action="' . $verification_url . '" method="POST" style="margin: 20px 0;">

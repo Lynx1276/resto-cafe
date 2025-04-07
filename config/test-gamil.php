@@ -1,5 +1,5 @@
 <?php
-require '/libs/PHPMailer/vendor/autoload.php';
+require 'vendor/autoload.php';
 $config = include './email.php';
 
 $mail = new PHPMailer\PHPMailer\PHPMailer(true);
@@ -17,7 +17,7 @@ try {
 
     // Recipients
     $mail->setFrom($config['smtp']['from'], $config['smtp']['from_name']);
-    $mail->addAddress('mlbausa10@gmail.com.com', 'Test User');
+    $mail->addAddress('ml.com', 'Test User');
 
     // Content
     $mail->isHTML(true);
