@@ -91,7 +91,7 @@ $reservation_stats = fetch_all("SELECT
                         </div>
                         <div class="relative">
                             <button class="flex items-center space-x-2 focus:outline-none" id="userMenuButton">
-                                <div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                                <div class="h-8 w-8 rounded-full bg-amber-500 flex items-center justify-center text-white">
                                     <?= strtoupper(substr($admin['first_name'], 0, 1) . substr($admin['last_name'], 0, 1)) ?>
                                 </div>
                                 <span class="hidden md:inline"><?= htmlspecialchars($admin['first_name']) ?></span>
@@ -124,15 +124,15 @@ $reservation_stats = fetch_all("SELECT
                         <div>
                             <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                             <input type="date" id="start_date" name="start_date" value="<?= htmlspecialchars($start_date) ?>"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500">
                         </div>
                         <div>
                             <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
                             <input type="date" id="end_date" name="end_date" value="<?= htmlspecialchars($end_date) ?>"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500">
                         </div>
                         <div class="flex items-end">
-                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md">
+                            <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white py-2 px-4 rounded-md">
                                 Generate Report
                             </button>
                         </div>
@@ -172,8 +172,8 @@ $reservation_stats = fetch_all("SELECT
                                     <?= number_format(fetch_value("SELECT COUNT(*) FROM orders WHERE created_at BETWEEN ? AND ?", [$start_date, $end_date]) ?? 0) ?>
                                 </p>
                             </div>
-                            <div class="bg-blue-100 p-3 rounded-full">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div class="bg-amber-100 p-3 rounded-full">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                                 </svg>
                             </div>

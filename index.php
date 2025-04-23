@@ -4,7 +4,8 @@ if (!isset($_SESSION)) {
     session_start();
 }
 
-require_once './includes/functions.php';
+require_once __DIR__ . '/controller/MenuController.php';
+require_once __DIR__ .  '/includes/functions.php';
 ?>
 
 <!DOCTYPE html>

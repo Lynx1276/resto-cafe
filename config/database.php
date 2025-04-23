@@ -8,7 +8,7 @@ function db_connect()
             'host' => 'localhost',
             'username' => 'root',
             'password' => '',
-            'database' => 'cafe_restaurant_db',
+            'database' => 'cafe_resto',
             'port' => 3306
         ];
 
