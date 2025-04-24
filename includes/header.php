@@ -99,9 +99,9 @@ if (session_status() === PHP_SESSION_NONE) {
                     <!-- Primary Navigation -->
                     <div class="hidden md:flex items-center space-x-1">
                         <a href="/" class="py-4 px-2 text-amber-600 border-b-4 border-amber-600 font-semibold">Home</a>
-                        <a href="#" class="py-4 px-2 text-gray-500 font-semibold hover:text-amber-600 transition duration-300">Menu</a>
-                        <a href="#" class="py-4 px-2 text-gray-500 font-semibold hover:text-amber-600 transition duration-300">About</a>
-                        <a href="#" class="py-4 px-2 text-gray-500 font-semibold hover:text-amber-600 transition duration-300">Contact</a>
+                        <a href="/index.php#menu" class="py-4 px-2 text-gray-500 font-semibold hover:text-amber-600 transition duration-300">Menu</a>
+                        <a href="/index.php#about" class="py-4 px-2 text-gray-500 font-semibold hover:text-amber-600 transition duration-300">About</a>
+                        <a href="/index.php#contact" class="py-4 px-2 text-gray-500 font-semibold hover:text-amber-600 transition duration-300">Contact</a>
                     </div>
                 </div>
                 <!-- Auth Navigation -->

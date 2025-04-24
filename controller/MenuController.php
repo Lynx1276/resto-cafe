@@ -247,16 +247,34 @@ function get_categories($with_item_count = false)
     return $categories;
 }
 
-function get_menu_items($category_id = null)
+function get_menu_items($category_id = null, $available_only = false)
 {
     $conn = db_connect();
-    $sql = $category_id !== null
-        ? "SELECT * FROM items WHERE category_id = ?"
-        : "SELECT * FROM items WHERE category_id IS NULL";
-    $stmt = $conn->prepare($sql);
+    $sql = "SELECT i.*, c.name as category_name 
+            FROM items i 
+            LEFT JOIN categories c ON i.category_id = c.category_id 
+            WHERE 1=1";
+
+    $params = [];
+    $types = '';
+
     if ($category_id !== null) {
-        $stmt->bind_param('i', $category_id);
+        $sql .= " AND i.category_id = ?";
+        $types .= 'i';
+        $params[] = $category_id;
     }
+
+    if ($available_only) {
+        $sql .= " AND i.is_available = 1";
+    }
+
+    $sql .= " ORDER BY i.name";
+
+    $stmt = $conn->prepare($sql);
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+
     $stmt->execute();
     $result = $stmt->get_result();
     $items = [];
@@ -265,4 +283,76 @@ function get_menu_items($category_id = null)
     }
     $stmt->close();
     return $items;
+}
+
+function add_to_cart($item_id, $quantity = 1)
+{
+    $conn = db_connect();
+    $sql = "SELECT item_id, name, price, is_available FROM items WHERE item_id = ? AND is_available = 1";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param('i', $item_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $item = $result->fetch_assoc();
+    $stmt->close();
+
+    if (!$item) {
+        return ['success' => false, 'message' => 'Item not found or unavailable'];
+    }
+
+    if (!isset($_SESSION['cart'])) {
+        $_SESSION['cart'] = [];
+    }
+
+    if (isset($_SESSION['cart'][$item_id])) {
+        $_SESSION['cart'][$item_id]['quantity'] += $quantity;
+    } else {
+        $_SESSION['cart'][$item_id] = [
+            'name' => $item['name'],
+            'price' => $item['price'],
+            'quantity' => $quantity
+        ];
+    }
+
+    return ['success' => true, 'message' => 'Item added to cart'];
+}
+
+function update_cart_item($item_id, $quantity)
+{
+    if (!isset($_SESSION['cart'][$item_id])) {
+        return ['success' => false, 'message' => 'Item not in cart'];
+    }
+
+    if ($quantity <= 0) {
+        unset($_SESSION['cart'][$item_id]);
+        return ['success' => true, 'message' => 'Item removed from cart'];
+    }
+
+    $_SESSION['cart'][$item_id]['quantity'] = $quantity;
+    return ['success' => true, 'message' => 'Cart updated'];
+}
+
+function remove_from_cart($item_id)
+{
+    if (isset($_SESSION['cart'][$item_id])) {
+        unset($_SESSION['cart'][$item_id]);
+        return ['success' => true, 'message' => 'Item removed from cart'];
+    }
+    return ['success' => false, 'message' => 'Item not in cart'];
+}
+
+function get_cart()
+{
+    return $_SESSION['cart'] ?? [];
+}
+
+function get_cart_item_count()
+{
+    $cart = get_cart();
+    return array_sum(array_column($cart, 'quantity'));
+}
+
+function clear_cart()
+{
+    $_SESSION['cart'] = [];
 }

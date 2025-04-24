@@ -26,32 +26,67 @@
 
     function handle_convert_to_staff()
     {
-        $conn = db_connect();
+        global $conn;
+
+        $user_id = filter_input(INPUT_POST, 'user_id', FILTER_VALIDATE_INT);
+        $position = filter_input(INPUT_POST, 'position', FILTER_SANITIZE_STRING);
+        $employment_status = filter_input(INPUT_POST, 'employment_status', FILTER_SANITIZE_STRING);
+        $roles = isset($_POST['roles']) ? array_map('intval', $_POST['roles']) : [];
+
+        if (!$user_id || !$position || !$employment_status) {
+            set_flash_message('Invalid input data', 'error');
+            header('Location: staff.php');
+            exit();
+        }
+
+        // Start transaction
+        $conn->begin_transaction();
 
         try {
-            $conn->begin_transaction();
-
-            $user_id = $_POST['user_id'];
-            $position = $_POST['position'];
-            $employment_status = $_POST['employment_status'];
+            // Check if the user is already a staff member
+            $stmt = $conn->prepare("SELECT 1 FROM staff WHERE user_id = ?");
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+            if ($stmt->get_result()->num_rows > 0) {
+                throw new Exception('User is already a staff member');
+            }
 
             // Insert into staff table
-            $stmt = $conn->prepare("INSERT INTO staff (user_id, position, employment_status, hire_date) VALUES (?, ?, ?, NOW())");
+            $stmt = $conn->prepare("INSERT INTO staff (user_id, position, hire_date, employment_status) VALUES (?, ?, CURDATE(), ?)");
             $stmt->bind_param("iss", $user_id, $position, $employment_status);
             $stmt->execute();
 
-            // Add 'staff' role (trigger should handle this, but let's ensure)
-            $staff_role_id = $conn->query("SELECT role_id FROM roles WHERE role_name = 'staff'")->fetch_assoc()['role_id'];
-            $stmt = $conn->prepare("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)");
-            $stmt->bind_param("ii", $user_id, $staff_role_id);
+            // Remove the customer role (role_id = 4)
+            $stmt = $conn->prepare("DELETE FROM user_roles WHERE user_id = ? AND role_id = ?");
+            $customer_role_id = 4;
+            $stmt->bind_param("ii", $user_id, $customer_role_id);
             $stmt->execute();
 
-            // Add additional roles if selected
-            $roles = $_POST['roles'] ?? [];
-            foreach ($roles as $role_id) {
+            // Remove the customer record
+            $stmt = $conn->prepare("DELETE FROM customers WHERE user_id = ?");
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+
+            // Ensure the staff role is assigned (in case the trigger fails or is modified)
+            $staff_role_id = 3;
+            $stmt = $conn->prepare("SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ?");
+            $stmt->bind_param("ii", $user_id, $staff_role_id);
+            $stmt->execute();
+            if ($stmt->get_result()->num_rows == 0) {
                 $stmt = $conn->prepare("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)");
-                $stmt->bind_param("ii", $user_id, $role_id);
+                $stmt->bind_param("ii", $user_id, $staff_role_id);
                 $stmt->execute();
+            }
+
+            // Add additional roles if provided
+            if (!empty($roles)) {
+                $stmt = $conn->prepare("INSERT IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)");
+                foreach ($roles as $role_id) {
+                    if ($role_id != $staff_role_id) { // Skip the staff role since we already added it
+                        $stmt->bind_param("ii", $user_id, $role_id);
+                        $stmt->execute();
+                    }
+                }
             }
 
             $conn->commit();
@@ -61,7 +96,7 @@
             set_flash_message('Error converting customer to staff: ' . $e->getMessage(), 'error');
         }
 
-        header('Location: staff_management.php');
+        header('Location: staff.php');
         exit();
     }
 
@@ -112,7 +147,7 @@
             set_flash_message('Error updating staff: ' . $e->getMessage(), 'error');
         }
 
-        header('Location: staff_management.php');
+        header('Location: staff.php');
         exit();
     }
 
@@ -148,7 +183,7 @@
             set_flash_message('Error deleting staff: ' . $e->getMessage(), 'error');
         }
 
-        header('Location: staff_management.php');
+        header('Location: staff.php');
         exit();
     }
 
@@ -185,7 +220,7 @@
             set_flash_message('Error updating schedule: ' . $e->getMessage(), 'error');
         }
 
-        header('Location: staff_management.php');
+        header('Location: staff.php');
         exit();
     }
     ?>

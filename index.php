@@ -5,7 +5,46 @@ if (!isset($_SESSION)) {
 }
 
 require_once __DIR__ . '/controller/MenuController.php';
-require_once __DIR__ .  '/includes/functions.php';
+require_once __DIR__ . '/includes/functions.php';
+
+// Handle cart actions (only for logged-in users)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    // Check if user is logged in
+    if (!is_logged_in()) {
+        set_flash_message('Please log in to add items to your cart.', 'error');
+        header('Location: modules/auth/login.php');
+        exit();
+    }
+
+    $action = $_POST['action'];
+    $item_id = isset($_POST['item_id']) ? (int)$_POST['item_id'] : 0;
+
+    if ($action === 'add_to_cart' && validate_csrf_token($_POST['csrf_token'])) {
+        $quantity = isset($_POST['quantity']) ? max(1, (int)$_POST['quantity']) : 1;
+        $result = add_to_cart($item_id, $quantity);
+        set_flash_message($result['message'], $result['success'] ? 'success' : 'error');
+        header('Location: index.php#menu');
+        exit();
+    }
+
+    if ($action === 'update_cart' && validate_csrf_token($_POST['csrf_token'])) {
+        $quantity = isset($_POST['quantity']) ? (int)$_POST['quantity'] : 0;
+        $result = update_cart_item($item_id, $quantity);
+        set_flash_message($result['message'], $result['success'] ? 'success' : 'error');
+        header('Location: index.php#menu');
+        exit();
+    }
+
+    if ($action === 'remove_from_cart' && validate_csrf_token($_POST['csrf_token'])) {
+        $result = remove_from_cart($item_id);
+        set_flash_message($result['message'], $result['success'] ? 'success' : 'error');
+        header('Location: index.php#menu');
+        exit();
+    }
+}
+
+// Get cart item count (only for logged-in users)
+$cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
 ?>
 
 <!DOCTYPE html>
@@ -36,17 +75,40 @@ require_once __DIR__ .  '/includes/functions.php';
             height: 80vh;
         }
 
+        .menu-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
         .menu-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #ca8a04;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
         }
     </style>
 </head>
 
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
     <!-- Navigation -->
-    <nav class="bg-white shadow-lg fixed w-full z-10">
-        <div class="max-w-6xl mx-auto px-4">
+    <nav class="bg-white shadow-lg fixed w-full z-20">
+        <div class="max-w-7xl mx-auto px-4">
             <div class="flex justify-between">
                 <div class="flex space-x-7">
                     <div>
@@ -67,6 +129,12 @@ require_once __DIR__ .  '/includes/functions.php';
                 <!-- Auth Navigation -->
                 <div class="hidden md:flex items-center space-x-3">
                     <?php if (is_logged_in()): ?>
+                        <button onclick="openCartModal()" class="relative py-2 px-4 font-semibold text-gray-500 hover:text-amber-600 transition duration-300">
+                            <i class="fas fa-shopping-cart"></i>
+                            <?php if ($cart_item_count > 0): ?>
+                                <span class="absolute top-1 right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-amber-600 rounded-full"><?php echo $cart_item_count; ?></span>
+                            <?php endif; ?>
+                        </button>
                         <a href="modules/customers/dashboard.php" class="py-2 px-4 font-semibold text-gray-500 hover:text-amber-600 transition duration-300">Dashboard</a>
                         <a href="modules/auth/logout.php" class="py-2 px-4 font-medium text-white bg-amber-600 rounded hover:bg-amber-500 transition duration-300">Logout</a>
                     <?php else: ?>
@@ -86,10 +154,11 @@ require_once __DIR__ .  '/includes/functions.php';
         <div class="hidden mobile-menu">
             <ul>
                 <li><a href="index.php" class="block py-2 px-4 text-sm hover:bg-amber-50">Home</a></li>
-                <li><a href="#menu" class="block py-2 px-4 text-sm hover:bg-amber-50">Menu</a></li>
-                <li><a href="#about" class="block py-2 px-4 text-sm hover:bg-amber-50">About</a></li>
-                <li><a href="#contact" class="block py-2 px-4 text-sm hover:bg-amber-50">Contact</a></li>
+                <li><a href="index.php#menu" class="block py-2 px-4 text-sm hover:bg-amber-50">Menu</a></li>
+                <li><a href="index.php#about" class="block py-2 px-4 text-sm hover:bg-amber-50">About</a></li>
+                <li><a href="index.php#contact" class="block py-2 px-4 text-sm hover:bg-amber-50">Contact</a></li>
                 <?php if (is_logged_in()): ?>
+                    <li><button onclick="openCartModal()" class="block py-2 px-4 text-sm hover:bg-amber-50 w-full text-left">Cart (<?php echo $cart_item_count; ?>)</button></li>
                     <li><a href="modules/customers/dashboard.php" class="block py-2 px-4 text-sm hover:bg-amber-50">Dashboard</a></li>
                     <li><a href="modules/auth/logout.php" class="block py-2 px-4 text-sm hover:bg-amber-50">Logout</a></li>
                 <?php else: ?>
@@ -115,27 +184,40 @@ require_once __DIR__ .  '/includes/functions.php';
     </section>
 
     <!-- Featured Products -->
-    <!-- Featured Products -->
     <section class="py-16 bg-white">
         <div class="container mx-auto px-4">
             <h2 class="text-3xl font-bold text-center mb-12">Most Loved Items</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <?php
-                $featured_items = get_menu_items(); // You might want to create a function to get featured items specifically
+                $featured_items = get_menu_items(null, true); // Fetch available items
                 $count = 0;
                 foreach ($featured_items as $item) {
                     if ($count >= 3) break;
                 ?>
-                    <div class="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 menu-card">
-                        <img src="<?php echo $item['image_url'] ?: 'https://via.placeholder.com/400x300'; ?>" alt="<?php echo htmlspecialchars($item['name']); ?>" class="w-full h-56 object-cover">
+                    <div class="bg-white rounded-lg shadow-md overflow-hidden menu-card">
+                        <img src="<?php echo htmlspecialchars($item['image_url'] ?: 'https://via.placeholder.com/400x300'); ?>" alt="<?php echo htmlspecialchars($item['name']); ?>" class="w-full h-56 object-cover">
                         <div class="p-6">
                             <div class="flex justify-between items-center mb-2">
                                 <h3 class="text-xl font-semibold"><?php echo htmlspecialchars($item['name']); ?></h3>
-                                <span class="text-amber-600 font-bold">$<?php echo number_format($item['price'], 2); ?></span>
+                                <span class="text-amber-600 font-bold">₱<?php echo number_format($item['price'], 2); ?></span>
                             </div>
                             <p class="text-gray-600 mb-4"><?php echo htmlspecialchars($item['description']); ?></p>
-                            <div class="flex items-center">
-                                <span class="inline-block bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm"><?php echo htmlspecialchars($item['category_name']); ?></span>
+                            <div class="flex items-center justify-between">
+                                <span class="inline-block bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm"><?php echo htmlspecialchars($item['category_name'] ?? 'Uncategorized'); ?></span>
+                                <?php if (is_logged_in()): ?>
+                                    <form method="POST" action="index.php">
+                                        <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                                        <input type="hidden" name="action" value="add_to_cart">
+                                        <input type="hidden" name="item_id" value="<?php echo $item['item_id']; ?>">
+                                        <button type="submit" class="text-amber-600 hover:text-amber-700 font-semibold flex items-center">
+                                            <i class="fas fa-cart-plus mr-2"></i> Add to Cart
+                                        </button>
+                                    </form>
+                                <?php else: ?>
+                                    <a href="modules/auth/login.php" class="text-amber-600 hover:text-amber-700 font-semibold flex items-center">
+                                        <i class="fas fa-sign-in-alt mr-2"></i> Login to Order
+                                    </a>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -155,7 +237,7 @@ require_once __DIR__ .  '/includes/functions.php';
 
             <!-- Menu Categories Tabs -->
             <div class="flex flex-wrap justify-center mb-10">
-                <button class="category-btn bg-amber-600 text-white py-2 px-6 rounded-full mx-2 mb-3">All</button>
+                <button class="category-btn bg-amber-600 text-white py-2 px-6 rounded-full mx-2 mb-3" data-category="all">All</button>
                 <?php
                 $categories = get_categories();
                 foreach ($categories as $category) {
@@ -164,20 +246,54 @@ require_once __DIR__ .  '/includes/functions.php';
                 ?>
             </div>
 
+            <!-- Loading Spinner -->
+            <div id="loadingSpinner" class="hidden flex justify-center items-center mb-6">
+                <div class="spinner"></div>
+            </div>
+
             <!-- Menu Items Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="menu-items-container">
                 <?php
-                $menuItems = get_menu_items();
+                $menuItems = get_menu_items(null, true); // Fetch available items
                 foreach ($menuItems as $item) {
                 ?>
-                    <div class="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 menu-card" data-category="<?php echo $item['category_id']; ?>">
+                    <div class="bg-white rounded-lg shadow-md overflow-hidden menu-card" data-category="<?php echo $item['category_id'] ?: 'uncategorized'; ?>">
+                        <img src="<?php echo htmlspecialchars($item['image_url'] ?: 'https://via.placeholder.com/400x300'); ?>" alt="<?php echo htmlspecialchars($item['name']); ?>" class="w-full h-48 object-cover">
                         <div class="p-6">
                             <div class="flex justify-between items-center mb-2">
                                 <h3 class="text-xl font-semibold"><?php echo htmlspecialchars($item['name']); ?></h3>
-                                <span class="text-amber-600 font-bold">$<?php echo number_format($item['price'], 2); ?></span>
+                                <span class="text-amber-600 font-bold">₱<?php echo number_format($item['price'], 2); ?></span>
                             </div>
                             <p class="text-gray-600 mb-3"><?php echo htmlspecialchars($item['description']); ?></p>
-                            <span class="inline-block bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm"><?php echo htmlspecialchars($item['category_name']); ?></span>
+                            <div class="space-y-2 mb-4">
+                                <span class="inline-block bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm"><?php echo htmlspecialchars($item['category_name'] ?? 'Uncategorized'); ?></span>
+                                <span class="inline-block px-3 py-1 rounded-full text-sm <?php echo $item['is_available'] ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
+                                    <?php echo $item['is_available'] ? 'Available' : 'Unavailable'; ?>
+                                </span>
+                                <?php if ($item['calories'] !== null): ?>
+                                    <span class="inline-block bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm"><?php echo $item['calories']; ?> cal</span>
+                                <?php endif; ?>
+                                <?php if ($item['allergens']): ?>
+                                    <span class="inline-block bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm">Allergens: <?php echo htmlspecialchars($item['allergens']); ?></span>
+                                <?php endif; ?>
+                                <?php if ($item['prep_time'] !== null): ?>
+                                    <span class="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">Prep: <?php echo $item['prep_time']; ?> min</span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if (is_logged_in()): ?>
+                                <form method="POST" action="index.php">
+                                    <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                                    <input type="hidden" name="action" value="add_to_cart">
+                                    <input type="hidden" name="item_id" value="<?php echo $item['item_id']; ?>">
+                                    <button type="submit" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-full transition duration-300 flex items-center justify-center" <?php echo !$item['is_available'] ? 'disabled' : ''; ?>>
+                                        <i class="fas fa-cart-plus mr-2"></i> Add to Cart
+                                    </button>
+                                </form>
+                            <?php else: ?>
+                                <a href="modules/auth/login.php" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-full transition duration-300 flex items-center justify-center">
+                                    <i class="fas fa-sign-in-alt mr-2"></i> Login to Order
+                                </a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 <?php } ?>
@@ -189,6 +305,73 @@ require_once __DIR__ .  '/includes/functions.php';
             </div>
         </div>
     </section>
+
+    <!-- Cart Modal (only for logged-in users) -->
+    <?php if (is_logged_in()): ?>
+        <div id="cartModal" class="fixed inset-0 hidden modal-backdrop z-50 flex items-center justify-center">
+            <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
+                <button onclick="toggleModal('cartModal')" class="absolute top-3 right-3 text-amber-600 hover:text-amber-700">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+                <h2 class="text-xl font-semibold text-amber-600 mb-4 flex items-center">
+                    <i class="fas fa-shopping-cart mr-2"></i> Your Cart
+                </h2>
+                <?php
+                $cart = get_cart();
+                if (empty($cart)):
+                ?>
+                    <p class="text-gray-600">Your cart is empty.</p>
+                <?php else: ?>
+                    <div class="space-y-4 max-h-96 overflow-y-auto">
+                        <?php
+                        $total = 0;
+                        foreach ($cart as $item_id => $item):
+                            $subtotal = $item['price'] * $item['quantity'];
+                            $total += $subtotal;
+                        ?>
+                            <div class="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
+                                <div>
+                                    <p class="text-sm font-medium text-amber-600"><?php echo htmlspecialchars($item['name']); ?></p>
+                                    <p class="text-xs text-gray-500">₱<?php echo number_format($item['price'], 2); ?> x <?php echo $item['quantity']; ?></p>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <form method="POST" action="index.php" class="flex items-center">
+                                        <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                                        <input type="hidden" name="action" value="update_cart">
+                                        <input type="hidden" name="item_id" value="<?php echo $item_id; ?>">
+                                        <input type="number" name="quantity" value="<?php echo $item['quantity']; ?>" min="1" class="w-16 px-2 py-1 border border-amber-200 rounded-md focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+                                        <button type="submit" class="ml-2 text-amber-600 hover:text-amber-700">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="index.php">
+                                        <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                                        <input type="hidden" name="action" value="remove_from_cart">
+                                        <input type="hidden" name="item_id" value="<?php echo $item_id; ?>">
+                                        <button type="submit" class="text-red-600 hover:text-red-700">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="mt-4 border-t border-amber-100 pt-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-semibold text-amber-600">Total:</span>
+                            <span class="text-lg font-bold text-amber-600">₱<?php echo number_format($total, 2); ?></span>
+                        </div>
+                        <div class="mt-4 flex justify-end">
+                            <form method="POST" action="modules/customers/checkout.php">
+                                <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                                <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-6 rounded-full transition duration-300">Proceed to Checkout</button>
+                            </form>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <!-- About Section -->
     <section id="about" class="py-16 bg-white">
@@ -386,100 +569,122 @@ require_once __DIR__ .  '/includes/functions.php';
         <i class="fas fa-arrow-up"></i>
     </button>
 
-    <!-- Mobile Menu Script -->
+    <!-- Scripts -->
     <script>
         // Mobile menu toggle
-        const mobileMenuButton = document.querySelector('.mobile-menu-button');
-        const mobileMenu = document.querySelector('.mobile-menu');
-
-        mobileMenuButton.addEventListener('click', () => {
-            mobileMenu.classList.toggle('hidden');
-        });
-
-        // Category tabs functionality
-        const categoryButtons = document.querySelectorAll('.category-btn');
-        categoryButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                // Remove active class from all buttons
-                categoryButtons.forEach(btn => {
-                    btn.classList.remove('bg-amber-600', 'text-white');
-                    btn.classList.add('bg-white', 'text-gray-700', 'hover:bg-amber-600', 'hover:text-white');
+        (function() {
+            const mobileMenuButton = document.querySelector('.mobile-menu-button');
+            const mobileMenu = document.querySelector('.mobile-menu');
+            if (mobileMenuButton && mobileMenu) {
+                mobileMenuButton.addEventListener('click', () => {
+                    mobileMenu.classList.toggle('hidden');
                 });
-
-                // Add active class to clicked button
-                button.classList.add('bg-amber-600', 'text-white');
-                button.classList.remove('bg-white', 'text-gray-700', 'hover:bg-amber-600', 'hover:text-white');
-
-                // In a real app, you would filter menu items here
-            });
-        });
-
-        // Back to top button
-        const backToTopButton = document.getElementById('backToTop');
-
-        window.addEventListener('scroll', () => {
-            if (window.pageYOffset > 300) {
-                backToTopButton.classList.remove('opacity-0', 'invisible');
-                backToTopButton.classList.add('opacity-100', 'visible');
-            } else {
-                backToTopButton.classList.remove('opacity-100', 'visible');
-                backToTopButton.classList.add('opacity-0', 'invisible');
             }
-        });
 
-        backToTopButton.addEventListener('click', () => {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
-        });
+            // Modal toggle function
+            function toggleModal(modalId) {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.classList.toggle('hidden');
+                } else {
+                    console.warn(`Modal with ID ${modalId} not found.`);
+                }
+            }
 
-        // Smooth scrolling for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function(e) {
-                e.preventDefault();
+            // Open Cart Modal (only available for logged-in users)
+            window.openCartModal = function() {
+                <?php if (is_logged_in()): ?>
+                    toggleModal('cartModal');
+                <?php else: ?>
+                    window.location.href = 'modules/auth/login.php';
+                <?php endif; ?>
+            };
 
-                const targetId = this.getAttribute('href');
-                if (targetId === '#') return;
+            // Category filter functionality
+            document.addEventListener('DOMContentLoaded', function() {
+                const categoryButtons = document.querySelectorAll('.category-btn');
+                const menuItems = document.querySelectorAll('.menu-card');
+                const loadingSpinner = document.getElementById('loadingSpinner');
 
-                const targetElement = document.querySelector(targetId);
-                if (targetElement) {
-                    targetElement.scrollIntoView({
-                        behavior: 'smooth'
+                if (categoryButtons && menuItems && loadingSpinner) {
+                    categoryButtons.forEach(button => {
+                        button.addEventListener('click', () => {
+                            const category = button.dataset.category;
+
+                            // Update button styles
+                            categoryButtons.forEach(btn => {
+                                btn.classList.remove('bg-amber-600', 'text-white');
+                                btn.classList.add('bg-white', 'text-gray-700', 'hover:bg-amber-600', 'hover:text-white');
+                            });
+                            button.classList.add('bg-amber-600', 'text-white');
+                            button.classList.remove('bg-white', 'text-gray-700', 'hover:bg-amber-600', 'hover:text-white');
+
+                            // Show loading spinner
+                            loadingSpinner.classList.remove('hidden');
+                            menuItems.forEach(item => item.classList.add('opacity-50'));
+
+                            // Simulate loading delay
+                            setTimeout(() => {
+                                menuItems.forEach(item => {
+                                    const itemCategory = item.dataset.category;
+                                    if (category === 'all' || (category === itemCategory) || (category !== 'uncategorized' && itemCategory === 'uncategorized' && !itemCategory)) {
+                                        item.style.display = 'block';
+                                    } else {
+                                        item.style.display = 'none';
+                                    }
+                                    item.classList.remove('opacity-50');
+                                });
+                                loadingSpinner.classList.add('hidden');
+                            }, 300);
+                        });
                     });
                 }
-            });
-        });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const categoryButtons = document.querySelectorAll('.category-btn');
-            const menuItems = document.querySelectorAll('.menu-card');
-
-            categoryButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    const categoryId = button.dataset.category;
-
-                    // Remove active class from all buttons
-                    categoryButtons.forEach(btn => {
-                        btn.classList.remove('bg-amber-600', 'text-white');
-                        btn.classList.add('bg-white', 'text-gray-700', 'hover:bg-amber-600', 'hover:text-white');
+                // Back to top button
+                const backToTopButton = document.getElementById('backToTop');
+                if (backToTopButton) {
+                    window.addEventListener('scroll', () => {
+                        if (window.pageYOffset > 300) {
+                            backToTopButton.classList.remove('opacity-0', 'invisible');
+                            backToTopButton.classList.add('opacity-100', 'visible');
+                        } else {
+                            backToTopButton.classList.remove('opacity-100', 'visible');
+                            backToTopButton.classList.add('opacity-0', 'invisible');
+                        }
                     });
 
-                    // Add active class to clicked button
-                    button.classList.add('bg-amber-600', 'text-white');
-                    button.classList.remove('bg-white', 'text-gray-700', 'hover:bg-amber-600', 'hover:text-white');
+                    backToTopButton.addEventListener('click', () => {
+                        window.scrollTo({
+                            top: 0,
+                            behavior: 'smooth'
+                        });
+                    });
+                }
 
-                    // Filter menu items
-                    menuItems.forEach(item => {
-                        if (!categoryId || item.dataset.category === categoryId) {
-                            item.style.display = 'block';
-                        } else {
-                            item.style.display = 'none';
+                // Smooth scrolling for anchor links
+                document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                    anchor.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const targetId = this.getAttribute('href');
+                        if (targetId === '#') return;
+                        const targetElement = document.querySelector(targetId);
+                        if (targetElement) {
+                            targetElement.scrollIntoView({
+                                behavior: 'smooth'
+                            });
                         }
                     });
                 });
+
+                // Close modal when clicking outside (only if modal exists)
+                document.addEventListener('click', (e) => {
+                    const modal = document.getElementById('cartModal');
+                    if (modal && e.target === modal) {
+                        modal.classList.add('hidden');
+                    }
+                });
             });
-        });
+        })();
     </script>
 </body>
 
