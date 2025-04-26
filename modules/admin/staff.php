@@ -22,7 +22,7 @@ include __DIR__ . '/include/header.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || !validate_csrf_token($_POST['csrf_token'])) {
         set_flash_message('Invalid CSRF token', 'error');
-        header('Location: staff_management.php');
+        header('Location: staff.php');
         exit();
     }
 

@@ -101,4 +101,24 @@
         header('Location: customers.php');
         exit();
     }
+
+    // Define get_customer_data function
+    function get_customer_datas($user_id)
+    {
+        global $conn;
+        $stmt = $conn->prepare("SELECT c.* FROM customers c WHERE c.user_id = ?");
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result()->fetch_assoc();
+        if (!$result) {
+            // Default values if customer data not found
+            return [
+                'membership_level' => 'Standard',
+                'loyalty_points' => 0
+            ];
+        }
+        return $result;
+    }
+
     ?>
+

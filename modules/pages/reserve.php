@@ -60,15 +60,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-function get_available_tables() {
-    $conn = db_connect();
-    $result = $conn->query("
-        SELECT * FROM restaurant_tables 
-        WHERE status = 'Available' AND capacity >= 2
-        ORDER BY capacity
-    ");
-    return $result->fetch_all(MYSQLI_ASSOC);
-}
 ?>
 
 <!DOCTYPE html>

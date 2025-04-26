@@ -7,6 +7,12 @@ if (!isset($_SESSION)) {
 require_once __DIR__ . '/controller/MenuController.php';
 require_once __DIR__ . '/includes/functions.php';
 
+
+// Define current page (simplified example - you may need to adjust based on your routing)
+$current_page = basename($_SERVER['PHP_SELF']); // Gets the current filename
+$is_home = ($current_page === 'index.php' || $current_page === '/');
+
+
 // Handle cart actions (only for logged-in users)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     // Check if user is logged in
@@ -120,10 +126,10 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
                     </div>
                     <!-- Primary Navigation -->
                     <div class="hidden md:flex items-center space-x-1">
-                        <a href="index.php" class="py-4 px-2 text-amber-600 border-b-4 border-amber-600 font-semibold">Home</a>
-                        <a href="#menu" class="py-4 px-2 text-gray-500 font-semibold hover:text-amber-600 transition duration-300">Menu</a>
-                        <a href="#about" class="py-4 px-2 text-gray-500 font-semibold hover:text-amber-600 transition duration-300">About</a>
-                        <a href="#contact" class="py-4 px-2 text-gray-500 font-semibold hover:text-amber-600 transition duration-300">Contact</a>
+                        <a href="/" class="py-4 px-2 font-semibold transition duration-300 <?php echo $is_home ? 'text-amber-600 border-b-4 border-amber-600' : 'text-gray-500 hover:text-amber-600' ?>">Home</a>
+                        <a href="/index.php#menu" class="py-4 px-2 font-semibold transition duration-300 <?php echo ($current_page === 'menu.php' || strpos($_SERVER['REQUEST_URI'], '#menu') !== false) ? 'text-amber-600 border-b-4 border-amber-600' : 'text-gray-500 hover:text-amber-600' ?>">Menu</a>
+                        <a href="/index.php#about" class="py-4 px-2 font-semibold transition duration-300 <?php echo strpos($_SERVER['REQUEST_URI'], '#about') !== false ? 'text-amber-600 border-b-4 border-amber-600' : 'text-gray-500 hover:text-amber-600' ?>">About</a>
+                        <a href="/index.php#contact" class="py-4 px-2 font-semibold transition duration-300 <?php echo strpos($_SERVER['REQUEST_URI'], '#contact') !== false ? 'text-amber-600 border-b-4 border-amber-600' : 'text-gray-500 hover:text-amber-600' ?>">Contact</a>
                     </div>
                 </div>
                 <!-- Auth Navigation -->

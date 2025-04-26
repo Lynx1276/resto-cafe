@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../controller/OrderController.php'; // Add this line
 require_login();
 
 $conn = db_connect();
@@ -22,6 +23,31 @@ if (!$is_manager && !$is_staff) {
     set_flash_message('Access denied. You must be a manager or staff to view the dashboard.', 'error');
     header('Location: /index.php');
     exit();
+}
+
+// Handle order status update for staff
+if ($is_staff && $_SERVER['REQUEST_METHOD'] === 'POST' && validate_csrf_token($_POST['csrf_token'])) {
+    $order_id = isset($_POST['order_id']) ? (int)$_POST['order_id'] : 0;
+    $new_status = isset($_POST['new_status']) ? trim($_POST['new_status']) : '';
+    $staff_id = null;
+
+    // Get staff_id for the logged-in user
+    $stmt = $conn->prepare("SELECT staff_id FROM staff WHERE user_id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $staff_id = $stmt->get_result()->fetch_assoc()['staff_id'];
+    $stmt->close();
+
+    if ($staff_id && $order_id && $new_status) {
+        $result = process_order($order_id, $new_status, $staff_id);
+        set_flash_message($result['message'], $result['success'] ? 'success' : 'error');
+        header('Location: dashboard.php');
+        exit();
+    } else {
+        set_flash_message('Invalid request to update order status.', 'error');
+        header('Location: dashboard.php');
+        exit();
+    }
 }
 
 // Manager-specific data
@@ -375,13 +401,32 @@ include __DIR__ . '/includes/header.php';
                                                         </p>
                                                         <p class="text-xs text-gray-500">
                                                             Customer: <?= htmlspecialchars($order['first_name'] . ' ' . $order['last_name']) ?>
-                                                            | Status: <?= htmlspecialchars($order['status']) ?>
+                                                            | Status:
+                                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium <?= $order['status'] === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800' ?>">
+                                                                <?= htmlspecialchars($order['status']) ?>
+                                                            </span>
                                                             | <?= date('M d, Y H:i', strtotime($order['created_at'])) ?>
                                                         </p>
                                                     </div>
-                                                    <a href="/orders.php?id=<?= $order['order_id'] ?>" class="text-sm text-amber-600 hover:text-amber-700 flex items-center">
-                                                        <i class="fas fa-eye mr-1"></i> View
-                                                    </a>
+                                                    <div class="flex items-center space-x-2">
+                                                        <form method="POST" action="dashboard.php">
+                                                            <input type="hidden" name="csrf_token" value="<?= generate_csrf_token() ?>">
+                                                            <input type="hidden" name="order_id" value="<?= $order['order_id'] ?>">
+                                                            <select name="new_status" class="px-2 py-1 border border-amber-200 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500 text-sm">
+                                                                <option value="Pending" <?= $order['status'] === 'Pending' ? 'selected' : '' ?>>Pending</option>
+                                                                <option value="Processing" <?= $order['status'] === 'Processing' ? 'selected' : '' ?>>Processing</option>
+                                                                <option value="Ready">Ready</option>
+                                                                <option value="Completed">Completed</option>
+                                                                <option value="Cancelled">Cancelled</option>
+                                                            </select>
+                                                            <button type="submit" class="ml-2 bg-amber-600 hover:bg-amber-500 text-white font-semibold py-1 px-3 rounded transition duration-300 text-sm">
+                                                                Update
+                                                            </button>
+                                                        </form>
+                                                        <a href="/modules/staff/orders.php?id=<?= $order['order_id'] ?>" class="text-sm text-amber-600 hover:text-amber-700 flex items-center">
+                                                            <i class="fas fa-eye mr-1"></i> View
+                                                        </a>
+                                                    </div>
                                                 </div>
                                             <?php endforeach; ?>
                                         </div>

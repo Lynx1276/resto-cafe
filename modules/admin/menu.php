@@ -169,7 +169,7 @@ if (!empty($uncategorized_items)) {
     </style>
 </head>
 
-<body class="bg-gray-100 font-sans">
+<body class="bg-gray-100 font-sans h-full">
     <div class="flex h-full">
         <?php include __DIR__ . '/include/sidebar.php'; ?>
 

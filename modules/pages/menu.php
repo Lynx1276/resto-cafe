@@ -1,8 +1,4 @@
 <?php
-// Start the session
-if (!isset($_SESSION)) {
-    session_start();
-}
 
 require_once __DIR__ . '/../../controller/MenuController.php';
 require_once __DIR__ . '/../../includes/functions.php';
@@ -251,7 +247,7 @@ $menuItems = get_menu_items();
                             data-allergens="<?php echo htmlspecialchars(strtolower($item['allergens'] ?? '')); ?>">
                             <img src="<?php echo htmlspecialchars($item['image_url'] ?: 'https://via.placeholder.com/400x300'); ?>" alt="<?php echo htmlspecialchars($item['name']); ?>" class="w-full h-48 object-cover">
                             <div class="p-6">
-                                <div class="flex justify-between items-center mb-2">
+                                <div class="flex justifications-between items-center mb-2">
                                     <h3 class="text-xl font-semibold"><?php echo htmlspecialchars($item['name']); ?></h3>
                                     <span class="text-amber-600 font-bold">₱<?php echo number_format($item['price'], 2); ?></span>
                                 </div>
@@ -316,7 +312,7 @@ $menuItems = get_menu_items();
                 ?>
                     <p class="text-gray-600">Your cart is empty.</p>
                 <?php else: ?>
-                    <div class="space-y-4 max-h-96 overflow-y-auto">
+                    <div class="space-y-4 max-h-48 overflow-y-auto">
                         <?php
                         $total = 0;
                         foreach ($cart as $item_id => $item):
@@ -355,12 +351,55 @@ $menuItems = get_menu_items();
                             <span class="text-lg font-semibold text-amber-600">Total:</span>
                             <span class="text-lg font-bold text-amber-600">₱<?php echo number_format($total, 2); ?></span>
                         </div>
-                        <div class="mt-4 flex justify-end">
-                            <form method="POST" action="../customers/checkout.php">
-                                <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                        <form method="POST" action="../customers/checkout.php" id="checkoutForm">
+                            <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                            <!-- Order Type -->
+                            <div class="mt-4">
+                                <label for="order_type" class="block text-sm font-medium text-gray-700">Order Type</label>
+                                <select name="order_type" id="order_type" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-amber-500 focus:border-amber-500" required>
+                                    <option value="Dine-in">Dine-in</option>
+                                    <option value="Takeout">Takeout</option>
+                                    <option value="Delivery">Delivery</option>
+                                </select>
+                            </div>
+                            <!-- Table Selection (for Dine-in) -->
+                            <div id="tableSelectionField" class="mt-4 hidden">
+                                <label for="table_id" class="block text-sm font-medium text-gray-700">Select Table</label>
+                                <select name="table_id" id="table_id" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+                                    <option value="">Select a table</option>
+                                    <?php
+                                    $tables = get_available_tables();
+                                    foreach ($tables as $table) {
+                                        echo "<option value='{$table['table_id']}'>{$table['table_number']}</option>";
+                                    }
+                                    ?>
+                                </select>
+                            </div>
+                            <!-- Delivery Address (for Delivery) -->
+                            <div id="deliveryAddressField" class="mt-4 hidden">
+                                <label for="delivery_address" class="block text-sm font-medium text-gray-700">Delivery Address</label>
+                                <textarea name="delivery_address" id="delivery_address" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-amber-500 focus:border-amber-500" rows="3"></textarea>
+                            </div>
+                            <!-- Payment Method -->
+                            <div class="mt-4">
+                                <label for="payment_method" class="block text-sm font-medium text-gray-700">Payment Method</label>
+                                <select name="payment_method" id="payment_method" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-amber-500 focus:border-amber-500" required>
+                                    <option value="Cash">Cash</option>
+                                    <option value="Credit Card">Credit Card</option>
+                                    <option value="Debit Card">Debit Card</option>
+                                    <option value="Mobile Payment">Mobile Payment</option>
+                                    <option value="Gift Card">Gift Card</option>
+                                </select>
+                            </div>
+                            <!-- Notes -->
+                            <div class="mt-4">
+                                <label for="notes" class="block text-sm font-medium text-gray-700">Notes (Optional)</label>
+                                <textarea name="notes" id="notes" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-amber-500 focus:border-amber-500" rows="3"></textarea>
+                            </div>
+                            <div class="mt-4 flex justify-end">
                                 <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-6 rounded-full transition duration-300">Proceed to Checkout</button>
-                            </form>
-                        </div>
+                            </div>
+                        </form>
                     </div>
                 <?php endif; ?>
             </div>
@@ -376,200 +415,236 @@ $menuItems = get_menu_items();
 
     <!-- Scripts -->
     <script>
-        // Mobile menu toggle
-        (function() {
+        // Modal toggle function
+        function toggleModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.toggle('hidden');
+                console.log(`Toggled modal ${modalId}: ${modal.classList.contains('hidden') ? 'hidden' : 'visible'}`);
+            } else {
+                console.warn(`Modal with ID ${modalId} not found.`);
+            }
+        }
+
+        // Open Cart Modal (only available for logged-in users)
+        window.openCartModal = function() {
+            <?php if (is_logged_in()): ?>
+                toggleModal('cartModal');
+            <?php else: ?>
+                window.location.href = '../auth/login.php';
+            <?php endif; ?>
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mobile menu toggle
             const mobileMenuButton = document.querySelector('.mobile-menu-button');
             const mobileMenu = document.querySelector('.mobile-menu');
             if (mobileMenuButton && mobileMenu) {
                 mobileMenuButton.addEventListener('click', () => {
                     mobileMenu.classList.toggle('hidden');
+                    console.log(`Mobile menu toggled: ${mobileMenu.classList.contains('hidden') ? 'hidden' : 'visible'}`);
                 });
+            } else {
+                console.warn('Mobile menu button or menu not found.');
             }
 
-            // Modal toggle function
-            function toggleModal(modalId) {
-                const modal = document.getElementById(modalId);
-                if (modal) {
-                    modal.classList.toggle('hidden');
-                } else {
-                    console.warn(`Modal with ID ${modalId} not found.`);
+            // Show/hide delivery address and table selection based on order type
+            const orderTypeSelect = document.getElementById('order_type');
+            const deliveryAddressField = document.getElementById('deliveryAddressField');
+            const deliveryAddressInput = document.getElementById('delivery_address');
+            const tableSelectionField = document.getElementById('tableSelectionField');
+            const tableIdSelect = document.getElementById('table_id');
+
+            if (orderTypeSelect && deliveryAddressField && tableSelectionField) {
+                function updateFormFields() {
+                    const orderType = orderTypeSelect.value;
+                    if (orderType === 'Delivery') {
+                        deliveryAddressField.classList.remove('hidden');
+                        deliveryAddressInput.setAttribute('required', 'required');
+                        tableSelectionField.classList.add('hidden');
+                        tableIdSelect.removeAttribute('required');
+                    } else if (orderType === 'Dine-in') {
+                        tableSelectionField.classList.remove('hidden');
+                        tableIdSelect.setAttribute('required', 'required');
+                        deliveryAddressField.classList.add('hidden');
+                        deliveryAddressInput.removeAttribute('required');
+                    } else {
+                        deliveryAddressField.classList.add('hidden');
+                        deliveryAddressInput.removeAttribute('required');
+                        tableSelectionField.classList.add('hidden');
+                        tableIdSelect.removeAttribute('required');
+                    }
                 }
-            }
 
-            // Open Cart Modal (only available for logged-in users)
-            window.openCartModal = function() {
-                <?php if (is_logged_in()): ?>
-                    toggleModal('cartModal');
-                <?php else: ?>
-                    window.location.href = '../auth/login.php';
-                <?php endif; ?>
-            };
+                orderTypeSelect.addEventListener('change', updateFormFields);
+                updateFormFields(); // Run on page load
+            }
 
             // Search and Filter functionality
-            document.addEventListener('DOMContentLoaded', function() {
-                const categoryButtons = document.querySelectorAll('.category-btn');
-                const menuItems = document.querySelectorAll('.menu-card');
-                const loadingSpinner = document.getElementById('loadingSpinner');
-                const searchInput = document.getElementById('menuSearch');
-                const sortPrice = document.getElementById('sortPrice');
-                const filterAvailability = document.getElementById('filterAvailability');
-                const filterAllergens = document.getElementById('filterAllergens');
+            const categoryButtons = document.querySelectorAll('.category-btn');
+            const menuItems = document.querySelectorAll('.menu-card');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const searchInput = document.getElementById('menuSearch');
+            const sortPrice = document.getElementById('sortPrice');
+            const filterAvailability = document.getElementById('filterAvailability');
+            const filterAllergens = document.getElementById('filterAllergens');
 
-                // Function to apply all filters and search
-                function applyFilters() {
-                    const searchTerm = searchInput.value.toLowerCase().trim();
-                    const selectedCategory = document.querySelector('.category-btn.bg-amber-600')?.dataset.category || 'all';
-                    const sortOrder = sortPrice.value;
-                    const availabilityFilter = filterAvailability.value;
-                    const allergenFilter = filterAllergens.value;
+            // Function to apply all filters and search
+            function applyFilters() {
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                const selectedCategory = document.querySelector('.category-btn.bg-amber-600')?.dataset.category || 'all';
+                const sortOrder = sortPrice.value;
+                const availabilityFilter = filterAvailability.value;
+                const allergenFilter = filterAllergens.value;
 
-                    // Show loading spinner
-                    loadingSpinner.classList.remove('hidden');
-                    menuItems.forEach(item => item.classList.add('opacity-50'));
+                // Show loading spinner
+                loadingSpinner.classList.remove('hidden');
+                menuItems.forEach(item => item.classList.add('opacity-50'));
 
-                    // Simulate loading delay
-                    setTimeout(() => {
-                        // Collect all items into an array for sorting
-                        let filteredItems = Array.from(menuItems);
+                // Simulate loading delay
+                setTimeout(() => {
+                    // Collect all items into an array for sorting
+                    let filteredItems = Array.from(menuItems);
 
-                        // Apply search filter
-                        if (searchTerm) {
-                            filteredItems = filteredItems.filter(item => {
-                                const name = item.dataset.name;
-                                const description = item.dataset.description;
-                                return name.includes(searchTerm) || description.includes(searchTerm);
-                            });
-                        }
-
-                        // Apply category filter
-                        if (selectedCategory !== 'all') {
-                            filteredItems = filteredItems.filter(item => {
-                                const itemCategory = item.dataset.category;
-                                return selectedCategory === itemCategory || (selectedCategory !== 'uncategorized' && itemCategory === 'uncategorized');
-                            });
-                        }
-
-                        // Apply availability filter
-                        if (availabilityFilter) {
-                            filteredItems = filteredItems.filter(item => {
-                                const isAvailable = item.dataset.available === 'true';
-                                return (availabilityFilter === 'available' && isAvailable) || (availabilityFilter === 'unavailable' && !isAvailable);
-                            });
-                        }
-
-                        // Apply allergen filter
-                        if (allergenFilter) {
-                            filteredItems = filteredItems.filter(item => {
-                                const allergens = item.dataset.allergens;
-                                if (allergenFilter === 'none') {
-                                    return !allergens;
-                                }
-                                return allergens.includes(allergenFilter);
-                            });
-                        }
-
-                        // Apply sorting
-                        if (sortOrder) {
-                            filteredItems.sort((a, b) => {
-                                const priceA = parseFloat(a.dataset.price);
-                                const priceB = parseFloat(b.dataset.price);
-                                return sortOrder === 'asc' ? priceA - priceB : priceB - priceA;
-                            });
-                        }
-
-                        // Hide all items first
-                        menuItems.forEach(item => {
-                            item.style.display = 'none';
-                            item.classList.remove('opacity-50');
+                    // Apply search filter
+                    if (searchTerm) {
+                        filteredItems = filteredItems.filter(item => {
+                            const name = item.dataset.name;
+                            const description = item.dataset.description;
+                            return name.includes(searchTerm) || description.includes(searchTerm);
                         });
+                    }
 
-                        // Show filtered and sorted items
-                        filteredItems.forEach(item => {
-                            item.style.display = 'block';
+                    // Apply category filter
+                    if (selectedCategory !== 'all') {
+                        filteredItems = filteredItems.filter(item => {
+                            const itemCategory = item.dataset.category;
+                            return selectedCategory === itemCategory || (selectedCategory !== 'uncategorized' && itemCategory === 'uncategorized');
                         });
+                    }
 
-                        // Show message if no items match
-                        const container = document.getElementById('menu-items-container');
-                        if (filteredItems.length === 0) {
-                            container.innerHTML = '<p class="text-center text-gray-600 col-span-full">No menu items match your search or filters.</p>';
-                        } else if (!container.querySelector('.menu-card')) {
-                            // Re-append the filtered items if the container was cleared
-                            container.innerHTML = '';
-                            filteredItems.forEach(item => container.appendChild(item));
-                        }
-
-                        loadingSpinner.classList.add('hidden');
-                    }, 300);
-                }
-
-                // Event listeners for category buttons
-                if (categoryButtons && menuItems && loadingSpinner) {
-                    categoryButtons.forEach(button => {
-                        button.addEventListener('click', () => {
-                            // Update button styles
-                            categoryButtons.forEach(btn => {
-                                btn.classList.remove('bg-amber-600', 'text-white');
-                                btn.classList.add('bg-white', 'text-gray-700', 'hover:bg-amber-600', 'hover:text-white');
-                            });
-                            button.classList.add('bg-amber-600', 'text-white');
-                            button.classList.remove('bg-white', 'text-gray-700', 'hover:bg-amber-600', 'hover:text-white');
-
-                            applyFilters();
+                    // Apply availability filter
+                    if (availabilityFilter) {
+                        filteredItems = filteredItems.filter(item => {
+                            const isAvailable = item.dataset.available === 'true';
+                            return (availabilityFilter === 'available' && isAvailable) || (availabilityFilter === 'unavailable' && !isAvailable);
                         });
-                    });
-                }
+                    }
 
-                // Event listeners for search and filters
-                searchInput.addEventListener('input', applyFilters);
-                sortPrice.addEventListener('change', applyFilters);
-                filterAvailability.addEventListener('change', applyFilters);
-                filterAllergens.addEventListener('change', applyFilters);
+                    // Apply allergen filter
+                    if (allergenFilter) {
+                        filteredItems = filteredItems.filter(item => {
+                            const allergens = item.dataset.allergens;
+                            if (allergenFilter === 'none') {
+                                return !allergens;
+                            }
+                            return allergens.includes(allergenFilter);
+                        });
+                    }
 
-                // Back to top button
-                const backToTopButton = document.getElementById('backToTop');
-                if (backToTopButton) {
-                    window.addEventListener('scroll', () => {
-                        if (window.pageYOffset > 300) {
-                            backToTopButton.classList.remove('opacity-0', 'invisible');
-                            backToTopButton.classList.add('opacity-100', 'visible');
-                        } else {
-                            backToTopButton.classList.remove('opacity-100', 'visible');
-                            backToTopButton.classList.add('opacity-0', 'invisible');
-                        }
+                    // Apply sorting
+                    if (sortOrder) {
+                        filteredItems.sort((a, b) => {
+                            const priceA = parseFloat(a.dataset.price);
+                            const priceB = parseFloat(b.dataset.price);
+                            return sortOrder === 'asc' ? priceA - priceB : priceB - priceA;
+                        });
+                    }
+
+                    // Hide all items first
+                    menuItems.forEach(item => {
+                        item.style.display = 'none';
+                        item.classList.remove('opacity-50');
                     });
 
-                    backToTopButton.addEventListener('click', () => {
-                        window.scrollTo({
-                            top: 0,
-                            behavior: 'smooth'
-                        });
+                    // Show filtered and sorted items
+                    filteredItems.forEach(item => {
+                        item.style.display = 'block';
                     });
-                }
 
-                // Smooth scrolling for anchor links
-                document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                    anchor.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        const targetId = this.getAttribute('href');
-                        if (targetId === '#') return;
-                        const targetElement = document.querySelector(targetId);
-                        if (targetElement) {
-                            targetElement.scrollIntoView({
-                                behavior: 'smooth'
-                            });
-                        }
+                    // Show message if no items match
+                    const container = document.getElementById('menu-items-container');
+                    if (filteredItems.length === 0) {
+                        container.innerHTML = '<p class="text-center text-gray-600 col-span-full">No menu items match your search or filters.</p>';
+                    } else if (!container.querySelector('.menu-card')) {
+                        // Re-append the filtered items if the container was cleared
+                        container.innerHTML = '';
+                        filteredItems.forEach(item => container.appendChild(item));
+                    }
+
+                    loadingSpinner.classList.add('hidden');
+                }, 300);
+            }
+
+            // Event listeners for category buttons
+            if (categoryButtons && menuItems && loadingSpinner) {
+                categoryButtons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        // Update button styles
+                        categoryButtons.forEach(btn => {
+                            btn.classList.remove('bg-amber-600', 'text-white');
+                            btn.classList.add('bg-white', 'text-gray-700', 'hover:bg-amber-600', 'hover:text-white');
+                        });
+                        button.classList.add('bg-amber-600', 'text-white');
+                        button.classList.remove('bg-white', 'text-gray-700', 'hover:bg-amber-600', 'hover:text-white');
+
+                        applyFilters();
                     });
                 });
+            }
 
-                // Close modal when clicking outside (only if modal exists)
-                document.addEventListener('click', (e) => {
-                    const modal = document.getElementById('cartModal');
-                    if (modal && e.target === modal) {
-                        modal.classList.add('hidden');
+            // Event listeners for search and filters
+            searchInput.addEventListener('input', applyFilters);
+            sortPrice.addEventListener('change', applyFilters);
+            filterAvailability.addEventListener('change', applyFilters);
+            filterAllergens.addEventListener('change', applyFilters);
+
+            // Back to top button
+            const backToTopButton = document.getElementById('backToTop');
+            if (backToTopButton) {
+                window.addEventListener('scroll', () => {
+                    if (window.pageYOffset > 300) {
+                        backToTopButton.classList.remove('opacity-0', 'invisible');
+                        backToTopButton.classList.add('opacity-100', 'visible');
+                    } else {
+                        backToTopButton.classList.remove('opacity-100', 'visible');
+                        backToTopButton.classList.add('opacity-0', 'invisible');
+                    }
+                });
+
+                backToTopButton.addEventListener('click', () => {
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                });
+            }
+
+            // Smooth scrolling for anchor links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href');
+                    if (targetId === '#') return;
+                    const targetElement = document.querySelector(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({
+                            behavior: 'smooth'
+                        });
                     }
                 });
             });
-        })();
+
+            // Close modal when clicking outside (only if modal exists)
+            const cartModal = document.getElementById('cartModal');
+            if (cartModal) {
+                cartModal.addEventListener('click', (e) => {
+                    if (e.target === cartModal) {
+                        toggleModal('cartModal');
+                    }
+                });
+            }
+        });
     </script>
 </body>
 

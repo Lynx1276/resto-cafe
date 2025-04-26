@@ -825,17 +825,22 @@ function get_user_by_id($user_id)
     return $user;
 }
 
-// Get customer data with user information
+// Define get_customer_data function
 function get_customer_data($user_id)
 {
     $conn = db_connect();
-    $stmt = $conn->prepare("SELECT c.*, u.username, u.email, u.first_name, u.last_name, u.phone 
-                           FROM customers c 
-                           JOIN users u ON c.user_id = u.user_id 
-                           WHERE c.user_id = ?");
+    $stmt = $conn->prepare("SELECT c.* FROM customers c WHERE c.user_id = ?");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
-    return $stmt->get_result()->fetch_assoc();
+    $result = $stmt->get_result()->fetch_assoc();
+    if (!$result) {
+        // Default values if customer data not found
+        return [
+            'membership_level' => 'Standard',
+            'loyalty_points' => 0
+        ];
+    }
+    return $result;
 }
 
 // Get customer ID from user ID
@@ -981,6 +986,8 @@ function get_weekly_sales()
 // Get popular menu items for chart
 function get_popular_items($limit = 5)
 {
+    $conn = db_connect();
+    
     return fetch_all("SELECT i.name, SUM(oi.quantity) as total 
                      FROM order_items oi
                      JOIN items i ON oi.item_id = i.item_id
@@ -991,3 +998,21 @@ function get_popular_items($limit = 5)
                      LIMIT ?", [$limit]);
 }
 
+function get_available_tables()
+{
+    $conn = db_connect();
+
+    $stmt = mysqli_prepare($conn, "SELECT table_id, table_number FROM restaurant_tables WHERE status = 'Available'");
+    if (!$stmt) {
+        error_log('Failed to prepare statement in get_available_tables: ' . mysqli_error($conn));
+        return [];
+    }
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $tables = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $tables[] = $row;
+    }
+    mysqli_stmt_close($stmt);
+    return $tables;
+}

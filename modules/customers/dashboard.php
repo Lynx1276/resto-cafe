@@ -1,6 +1,9 @@
 <?php
 // Secure session and authentication
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../controller/OrderController.php';
+require_once __DIR__ . '/../../controller/MenuController.php';
+require_once __DIR__ . '/../../controller/CustomerController.php'; // Assuming this connects to your database
 
 require_auth();
 
@@ -9,37 +12,24 @@ $conn = db_connect();
 
 // Get user data
 $user = get_user_by_id($user_id);
+
+
+
 $customer = get_customer_data($user_id);
 
-// Get recent orders
+// Define get_recent_orders function
+
+
 $orders = get_recent_orders($user_id, 5);
 
 // Get upcoming reservations
-$reservations = get_upcoming_reservations($user_id);
-
-$page_title = "Dashboard";
-$current_page = "dashboard";
-
-function get_recent_orders($user_id, $limit)
-{
-    $conn = db_connect();
-    $stmt = $conn->prepare("
-        SELECT o.order_id, o.created_at, o.status, SUM(oi.quantity * oi.unit_price) as total
-        FROM orders o
-        JOIN order_items oi ON o.order_id = oi.order_id
-        WHERE o.customer_id = ?
-        GROUP BY o.order_id
-        ORDER BY o.created_at DESC
-        LIMIT ?
-    ");
-    $stmt->bind_param("ii", $user_id, $limit);
-    $stmt->execute();
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-}
-
 function get_upcoming_reservations($user_id)
 {
-    $conn = db_connect();
+    global $conn;
+    $customer_id = get_customer_id_from_user_id($user_id);
+    if (!$customer_id) {
+        return [];
+    }
     $stmt = $conn->prepare("
         SELECT r.*, rt.table_number
         FROM reservations r
@@ -48,10 +38,15 @@ function get_upcoming_reservations($user_id)
         ORDER BY r.reservation_date, r.start_time
         LIMIT 5
     ");
-    $stmt->bind_param("i", $user_id);
+    $stmt->bind_param("i", $customer_id);
     $stmt->execute();
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
+
+$reservations = get_upcoming_reservations($user_id);
+
+$page_title = "Dashboard";
+$current_page = "dashboard";
 ?>
 
 <!DOCTYPE html>
@@ -71,17 +66,16 @@ function get_upcoming_reservations($user_id)
     <div class="container mx-auto px-4 py-8">
         <div class="flex flex-col md:flex-row gap-6">
             <!-- Sidebar -->
-            <!-- Sidebar -->
             <div class="md:w-1/4">
                 <div class="bg-white rounded-xl shadow-md p-6 sticky top-24">
                     <div class="text-center mb-6">
                         <div class="w-24 h-24 bg-gradient-to-br from-amber-100 to-amber-200 rounded-full mx-auto mb-4 flex items-center justify-center shadow-inner">
                             <i class="fas fa-user text-amber-600 text-3xl"></i>
                         </div>
-                        <h2 class="text-xl font-bold text-gray-800"><?= htmlspecialchars($user['first_name'] . ' ' . htmlspecialchars($user['last_name'])) ?></h2>
+                        <h2 class="text-xl font-bold text-gray-800"><?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?></h2>
                         <p class="text-gray-500 text-sm">Member since <?= date('M Y', strtotime($user['created_at'])) ?></p>
                         <div class="mt-2 bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-0.5 rounded-full inline-block">
-                            <?= $customer['membership_level'] ?> member
+                            <?= htmlspecialchars($customer['membership_level']) ?> member
                         </div>
                     </div>
 
@@ -90,13 +84,13 @@ function get_upcoming_reservations($user_id)
                             <i class="fas fa-tachometer-alt mr-3 text-amber-600"></i> Dashboard
                         </a>
                         <a href="profile.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-gray-700">
-                            <i class="fas fa-calendar-alt mr-3 text-gray-500"></i> My Profile
+                            <i class="fas fa-user mr-3 text-gray-500"></i> My Profile
                         </a>
                         <a href="orders.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-gray-700">
                             <i class="fas fa-receipt mr-3 text-gray-500"></i> My Orders
                         </a>
                         <a href="reservation.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-gray-700">
-                            <i class="fas fa-receipt mr-3 text-gray-500"></i> Reservations
+                            <i class="fas fa-calendar-alt mr-3 text-gray-500"></i> Reservations
                         </a>
                         <a href="favorites.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-gray-700">
                             <i class="fas fa-heart mr-3 text-gray-500"></i> Favorites
@@ -170,7 +164,7 @@ function get_upcoming_reservations($user_id)
                                             </td>
                                             <td class="text-right">$<?= number_format($order['total'], 2) ?></td>
                                             <td class="text-right">
-                                                <a href="order-details.php?id=<?= $order['order_id'] ?>" class="text-amber-600 hover:text-amber-500">
+                                                <a href="/modules/customers/orders.php?id=<?= $order['order_id'] ?>" class="text-amber-600 hover:text-amber-500">
                                                     <i class="fas fa-eye"></i> View
                                                 </a>
                                             </td>
@@ -181,6 +175,73 @@ function get_upcoming_reservations($user_id)
                         </div>
                     <?php endif; ?>
                 </div>
+
+                <!-- Cart Modal (only for logged-in users) -->
+                <?php if (is_logged_in()): ?>
+                    <div id="cartModal" class="fixed inset-0 hidden modal-backdrop z-50 flex items-center justify-center">
+                        <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
+                            <button onclick="toggleModal('cartModal')" class="absolute top-3 right-3 text-amber-600 hover:text-amber-700">
+                                <i class="fas fa-times text-lg"></i>
+                            </button>
+                            <h2 class="text-xl font-semibold text-amber-600 mb-4 flex items-center">
+                                <i class="fas fa-shopping-cart mr-2"></i> Your Cart
+                            </h2>
+                            <?php
+                            $cart = get_cart();
+                            if (empty($cart)):
+                            ?>
+                                <p class="text-gray-600">Your cart is empty.</p>
+                            <?php else: ?>
+                                <div class="space-y-4 max-h-96 overflow-y-auto">
+                                    <?php
+                                    $total = 0;
+                                    foreach ($cart as $item_id => $item):
+                                        $subtotal = $item['price'] * $item['quantity'];
+                                        $total += $subtotal;
+                                    ?>
+                                        <div class="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
+                                            <div>
+                                                <p class="text-sm font-medium text-amber-600"><?php echo htmlspecialchars($item['name']); ?></p>
+                                                <p class="text-xs text-gray-500">$<?php echo number_format($item['price'], 2); ?> x <?php echo $item['quantity']; ?></p>
+                                            </div>
+                                            <div class="flex items-center space-x-2">
+                                                <form method="POST" action="index.php" class="flex items-center">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                                                    <input type="hidden" name="action" value="update_cart">
+                                                    <input type="hidden" name="item_id" value="<?php echo $item_id; ?>">
+                                                    <input type="number" name="quantity" value="<?php echo $item['quantity']; ?>" min="1" class="w-16 px-2 py-1 border border-amber-200 rounded-md focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+                                                    <button type="submit" class="ml-2 text-amber-600 hover:text-amber-700">
+                                                        <i class="fas fa-sync-alt"></i>
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="index.php">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                                                    <input type="hidden" name="action" value="remove_from_cart">
+                                                    <input type="hidden" name="item_id" value="<?php echo $item_id; ?>">
+                                                    <button type="submit" class="text-red-600 hover:text-red-700">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                <div class="mt-4 border-t border-amber-100 pt-4">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-lg font-semibold text-amber-600">Total:</span>
+                                        <span class="text-lg font-bold text-amber-600">$<?php echo number_format($total, 2); ?></span>
+                                    </div>
+                                    <div class="mt-4 flex justify-end">
+                                        <form method="POST" action="modules/customers/checkout.php">
+                                            <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                                            <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-6 rounded-full transition duration-300">Proceed to Checkout</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
 
                 <!-- Upcoming Reservations -->
                 <div class="bg-white rounded-lg shadow p-6">
@@ -197,7 +258,7 @@ function get_upcoming_reservations($user_id)
                                 <div class="border rounded-lg p-4 hover:shadow-md transition">
                                     <div class="flex justify-between items-start">
                                         <div>
-                                            <h3 class="font-medium">Table #<?= $reservation['table_number'] ?></h3>
+                                            <h3 class="font-medium">Table #<?= htmlspecialchars($reservation['table_number']) ?></h3>
                                             <p class="text-gray-600">
                                                 <?= date('D, M j', strtotime($reservation['reservation_date'])) ?>
                                                 at <?= date('g:i A', strtotime($reservation['start_time'])) ?>
@@ -205,7 +266,7 @@ function get_upcoming_reservations($user_id)
                                             <p class="text-sm text-gray-500">
                                                 Party of <?= $reservation['party_size'] ?> •
                                                 <span class="<?= $reservation['status'] === 'Confirmed' ? 'text-green-600' : 'text-yellow-600' ?>">
-                                                    <?= $reservation['status'] ?>
+                                                    <?= htmlspecialchars($reservation['status']) ?>
                                                 </span>
                                             </p>
                                         </div>
@@ -234,6 +295,122 @@ function get_upcoming_reservations($user_id)
     </div>
 
     <?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+    <script>
+        // Mobile menu toggle
+        (function() {
+            const mobileMenuButton = document.querySelector('.mobile-menu-button');
+            const mobileMenu = document.querySelector('.mobile-menu');
+            if (mobileMenuButton && mobileMenu) {
+                mobileMenuButton.addEventListener('click', () => {
+                    mobileMenu.classList.toggle('hidden');
+                });
+            }
+
+            // Modal toggle function
+            function toggleModal(modalId) {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.classList.toggle('hidden');
+                } else {
+                    console.warn(`Modal with ID ${modalId} not found.`);
+                }
+            }
+
+            // Open Cart Modal (only available for logged-in users)
+            window.openCartModal = function() {
+                <?php if (is_logged_in()): ?>
+                    toggleModal('cartModal');
+                <?php else: ?>
+                    window.location.href = 'modules/auth/login.php';
+                <?php endif; ?>
+            };
+
+            // Category filter functionality (not used in dashboard, but keeping for consistency)
+            document.addEventListener('DOMContentLoaded', function() {
+                const categoryButtons = document.querySelectorAll('.category-btn');
+                const menuItems = document.querySelectorAll('.menu-card');
+                const loadingSpinner = document.getElementById('loadingSpinner');
+
+                if (categoryButtons && menuItems && loadingSpinner) {
+                    categoryButtons.forEach(button => {
+                        button.addEventListener('click', () => {
+                            const category = button.dataset.category;
+
+                            // Update button styles
+                            categoryButtons.forEach(btn => {
+                                btn.classList.remove('bg-amber-600', 'text-white');
+                                btn.classList.add('bg-white', 'text-gray-700', 'hover:bg-amber-600', 'hover:text-white');
+                            });
+                            button.classList.add('bg-amber-600', 'text-white');
+                            button.classList.remove('bg-white', 'text-gray-700', 'hover:bg-amber-600', 'hover:text-white');
+
+                            // Show loading spinner
+                            loadingSpinner.classList.remove('hidden');
+                            menuItems.forEach(item => item.classList.add('opacity-50'));
+
+                            // Simulate loading delay
+                            setTimeout(() => {
+                                menuItems.forEach(item => {
+                                    const itemCategory = item.dataset.category;
+                                    if (category === 'all' || (category === itemCategory) || (category !== 'uncategorized' && itemCategory === 'uncategorized' && !itemCategory)) {
+                                        item.style.display = 'block';
+                                    } else {
+                                        item.style.display = 'none';
+                                    }
+                                    item.classList.remove('opacity-50');
+                                });
+                                loadingSpinner.classList.add('hidden');
+                            }, 300);
+                        });
+                    });
+                }
+
+                // Back to top button
+                const backToTopButton = document.getElementById('backToTop');
+                if (backToTopButton) {
+                    window.addEventListener('scroll', () => {
+                        if (window.pageYOffset > 300) {
+                            backToTopButton.classList.remove('opacity-0', 'invisible');
+                            backToTopButton.classList.add('opacity-100', 'visible');
+                        } else {
+                            backToTopButton.classList.remove('opacity-100', 'visible');
+                            backToTopButton.classList.add('opacity-0', 'invisible');
+                        }
+                    });
+
+                    backToTopButton.addEventListener('click', () => {
+                        window.scrollTo({
+                            top: 0,
+                            behavior: 'smooth'
+                        });
+                    });
+                }
+
+                // Smooth scrolling for anchor links
+                document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                    anchor.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const targetId = this.getAttribute('href');
+                        if (targetId === '#') return;
+                        const targetElement = document.querySelector(targetId);
+                        if (targetElement) {
+                            targetElement.scrollIntoView({
+                                behavior: 'smooth'
+                            });
+                        }
+                    });
+                });
+
+                // Close modal when clicking outside (only if modal exists)
+                document.addEventListener('click', (e) => {
+                    const modal = document.getElementById('cartModal');
+                    if (modal && e.target === modal) {
+                        modal.classList.add('hidden');
+                    }
+                });
+            });
+        })();
+    </script>
 </body>
 
 </html>

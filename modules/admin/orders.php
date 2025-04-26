@@ -150,7 +150,32 @@ $types .= 'ii';
 $stmt = $conn->prepare($query);
 $stmt->bind_param($types, ...$params);
 $stmt->execute();
-$orders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$orders_result = $stmt->get_result();
+$orders = [];
+$order_items = [];
+
+// Fetch orders and their totals, and preload order items
+while ($order = $orders_result->fetch_assoc()) {
+    // Calculate total for each order
+    $total = fetch_value("SELECT SUM(oi.quantity * oi.unit_price) FROM order_items oi WHERE oi.order_id = ?", [$order['order_id']]) ?? 0;
+    $order['total_calculated'] = $total;
+
+    // Fetch order items for each order
+    $stmt = $conn->prepare("SELECT oi.*, m.name 
+                           FROM order_items oi 
+                           LEFT JOIN items m ON oi.item_id = m.item_id 
+                           WHERE oi.order_id = ?");
+    $stmt->bind_param("i", $order['order_id']);
+    $stmt->execute();
+    $items_result = $stmt->get_result();
+    $items = [];
+    while ($item = $items_result->fetch_assoc()) {
+        $items[] = $item;
+    }
+    $order_items[$order['order_id']] = $items;
+
+    $orders[] = $order;
+}
 ?>
 
 <!DOCTYPE html>
@@ -376,12 +401,7 @@ $orders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                                             <?= date('M j, Y g:i A', strtotime($order['created_at'])) ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-amber-700">
-                                            <?php
-                                            $total = fetch_value("SELECT SUM(oi.quantity * oi.unit_price) 
-                                                FROM order_items oi 
-                                                WHERE oi.order_id = ?", [$order['order_id']]);
-                                            echo '$' . number_format($total ?? 0, 2);
-                                            ?>
+                                            $<?= number_format($order['total_calculated'], 2) ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <button onclick='openViewModal(<?= json_encode($order) ?>)' class="text-amber-600 hover:text-amber-900 mr-3">View</button>
@@ -486,6 +506,9 @@ $orders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     </div>
 
     <script>
+        // Preload order items data
+        const orderItems = <?= json_encode($order_items) ?>;
+
         // User menu toggle
         const userMenuButton = document.getElementById('userMenuButton');
         const userMenu = document.getElementById('userMenu');
@@ -520,18 +543,23 @@ $orders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                 minute: 'numeric',
                 hour12: true
             });
-            const total = <?= json_encode(array_column($orders, 'order_id')) ?>.includes(order.order_id) ?
-                `$${Number(<?= json_encode(array_map(fn($o) => fetch_value("SELECT SUM(oi.quantity * oi.unit_price) FROM order_items oi WHERE oi.order_id = ?", [$o['order_id']]) ?? 0, $orders)) ?>[<?= json_encode(array_keys(array_column($orders, 'order_id'))) ?>[order.order_id]]).toFixed(2)}` : '$0.00';
-            document.getElementById('viewTotal').textContent = total;
+            document.getElementById('viewTotal').textContent = `$${Number(order.total_calculated).toFixed(2)}`;
 
-            // Fetch order items (simplified; you may need to fetch this dynamically via AJAX if order_items table has more details)
+            // Display order items
             const itemsList = document.getElementById('viewItems');
             itemsList.innerHTML = '';
-            // Placeholder for items (since we don't have item names in the schema provided)
-            const placeholderItems = `Order #${order.order_id} items (fetch from order_items table)`;
-            const li = document.createElement('li');
-            li.textContent = placeholderItems;
-            itemsList.appendChild(li);
+            const items = orderItems[order.order_id] || [];
+            if (items.length === 0) {
+                const li = document.createElement('li');
+                li.textContent = 'No items found for this order.';
+                itemsList.appendChild(li);
+            } else {
+                items.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = `${item.item_name || 'Unknown Item'} (Qty: ${item.quantity}, $${Number(item.unit_price).toFixed(2)})`;
+                    itemsList.appendChild(li);
+                });
+            }
 
             viewModal.classList.remove('hidden');
         }
