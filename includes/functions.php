@@ -1002,7 +1002,11 @@ function get_available_tables()
 {
     $conn = db_connect();
 
-    $stmt = mysqli_prepare($conn, "SELECT table_id, table_number FROM restaurant_tables WHERE status = 'Available'");
+    $stmt = $conn->prepare("
+        SELECT table_id, table_number, capacity, location, status 
+        FROM restaurant_tables 
+        WHERE status = 'Available'
+    ");
     if (!$stmt) {
         error_log('Failed to prepare statement in get_available_tables: ' . mysqli_error($conn));
         return [];

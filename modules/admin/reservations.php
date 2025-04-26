@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     log_event($_SESSION['user_id'], $event_type, $event_details);
                     set_flash_message($success_message, 'success');
                 } else {
-                    set_flash_message("Failed to save reservation", 'error');
+                    set_flash_message("Failed to save reservation: " . $stmt->error, 'error');
                 }
             } else {
                 set_flash_message("Invalid input data", 'error');
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     log_event($_SESSION['user_id'], 'reservation_delete', "Deleted reservation #$reservation_id");
                     set_flash_message("Reservation deleted successfully", 'success');
                 } else {
-                    set_flash_message("Failed to delete reservation", 'error');
+                    set_flash_message("Failed to delete reservation: " . $stmt->error, 'error');
                 }
             }
         }
@@ -80,10 +80,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get today's reservations by default
-$date_filter = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
+// Get filter parameters
+$date_filter = isset($_GET['date']) ? $_GET['date'] : '';
 $status_filter = isset($_GET['status']) ? $_GET['status'] : '';
+$time_slot = isset($_GET['time_slot']) ? $_GET['time_slot'] : '';
 
+// Build the query to fetch reservations
 $query = "SELECT r.*, 
           u.first_name, u.last_name, u.phone, u.email,
           t.table_number, t.capacity
@@ -91,21 +93,45 @@ $query = "SELECT r.*,
           JOIN customers c ON r.customer_id = c.customer_id
           JOIN users u ON c.user_id = u.user_id
           LEFT JOIN restaurant_tables t ON r.table_id = t.table_id
-          WHERE DATE(r.reservation_date) = ?";
+          WHERE 1=1";
 
-$params = [$date_filter];
-$types = "s";
+// Apply date filter: Show upcoming reservations by default (from today onward)
+$today = date('Y-m-d');
+if (!empty($date_filter)) {
+    $query .= " AND DATE(r.reservation_date) = ?";
+    $params[] = $date_filter;
+    $types = "s";
+} else {
+    $query .= " AND DATE(r.reservation_date) >= ?";
+    $params[] = $today;
+    $types = "s";
+}
 
+// Add status filter
 if (!empty($status_filter)) {
     $query .= " AND r.status = ?";
     $params[] = $status_filter;
     $types .= "s";
 }
 
-$query .= " ORDER BY r.start_time ASC";
+// Add time slot filter
+if (!empty($time_slot)) {
+    if ($time_slot === 'breakfast') {
+        $query .= " AND TIME(r.start_time) BETWEEN '07:00:00' AND '11:00:00'";
+    } elseif ($time_slot === 'lunch') {
+        $query .= " AND TIME(r.start_time) BETWEEN '11:00:00' AND '15:00:00'";
+    } elseif ($time_slot === 'dinner') {
+        $query .= " AND TIME(r.start_time) BETWEEN '17:00:00' AND '22:00:00'";
+    }
+}
 
+$query .= " ORDER BY r.reservation_date, r.start_time ASC";
+
+// Execute the query for reservations
 $stmt = $conn->prepare($query);
-$stmt->bind_param($types, ...$params);
+if (!empty($params)) {
+    $stmt->bind_param($types, ...$params);
+}
 $stmt->execute();
 $reservations = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
@@ -258,9 +284,9 @@ include __DIR__ . '/include/header.php';
                             <label for="time_slot" class="block text-sm font-medium text-amber-900 mb-1">Time Slot</label>
                             <select id="time_slot" name="time_slot" class="w-full px-3 py-2 border border-amber-200 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500">
                                 <option value="">All Day</option>
-                                <option value="breakfast">Breakfast (7AM-11AM)</option>
-                                <option value="lunch">Lunch (11AM-3PM)</option>
-                                <option value="dinner">Dinner (5PM-10PM)</option>
+                                <option value="breakfast" <?= $time_slot === 'breakfast' ? 'selected' : '' ?>>Breakfast (7AM-11AM)</option>
+                                <option value="lunch" <?= $time_slot === 'lunch' ? 'selected' : '' ?>>Lunch (11AM-3PM)</option>
+                                <option value="dinner" <?= $time_slot === 'dinner' ? 'selected' : '' ?>>Dinner (5PM-10PM)</option>
                             </select>
                         </div>
                         <div class="flex items-end">
@@ -287,6 +313,7 @@ include __DIR__ . '/include/header.php';
                         <table class="min-w-full divide-y divide-amber-100">
                             <thead class="bg-amber-50">
                                 <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Date</th>
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Time</th>
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Customer</th>
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-amber-900 uppercase tracking-wider">Party Size</th>
@@ -298,6 +325,9 @@ include __DIR__ . '/include/header.php';
                             <tbody class="bg-white divide-y divide-amber-100">
                                 <?php foreach ($reservations as $reservation): ?>
                                     <tr class="hover:bg-amber-50 transition-colors">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-amber-900">
+                                            <?= htmlspecialchars($reservation['reservation_date']) ?>
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-amber-900">
                                             <?= date('g:i A', strtotime($reservation['start_time'])) ?> - <?= date('g:i A', strtotime($reservation['end_time'])) ?>
                                         </td>

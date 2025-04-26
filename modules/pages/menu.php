@@ -1,20 +1,81 @@
 <?php
-
 require_once __DIR__ . '/../../controller/MenuController.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
-// Handle cart actions (only for logged-in users)
+// Get customer ID and favorites if logged in
+$customer_id = null;
+$user_favorites = [];
+if (is_logged_in()) {
+    $user_id = $_SESSION['user_id'];
+    $customer_id = get_customer_id($user_id);
+    if ($customer_id) {
+        // Fetch user's current favorites
+        $stmt = db_connect()->prepare("SELECT item_id FROM favorites WHERE customer_id = ?");
+        $stmt->bind_param("i", $customer_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $user_favorites[] = $row['item_id'];
+        }
+        $stmt->close();
+    }
+}
+
+// Handle cart and favorites actions (only for logged-in users)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     // Check if user is logged in
     if (!is_logged_in()) {
-        set_flash_message('Please log in to add items to your cart.', 'error');
+        set_flash_message('Please log in to perform this action.', 'error');
         header('Location: ../auth/login.php');
+        exit();
+    }
+
+    if (!$customer_id) {
+        set_flash_message('Customer ID not found. Please ensure your account is properly set up.', 'error');
+        header('Location: menu.php#menu');
         exit();
     }
 
     $action = $_POST['action'];
     $item_id = isset($_POST['item_id']) ? (int)$_POST['item_id'] : 0;
 
+    // Handle favorites actions
+    if ($action === 'toggle_favorite' && validate_csrf_token($_POST['csrf_token'])) {
+        if (!$item_id) {
+            set_flash_message('Invalid item ID.', 'error');
+            header('Location: menu.php#menu');
+            exit();
+        }
+
+        // Check if the item is already a favorite
+        $is_favorite = in_array($item_id, $user_favorites);
+        $conn = db_connect();
+
+        if ($is_favorite) {
+            // Remove from favorites
+            $stmt = $conn->prepare("DELETE FROM favorites WHERE customer_id = ? AND item_id = ?");
+            $stmt->bind_param("ii", $customer_id, $item_id);
+            if ($stmt->execute()) {
+                set_flash_message('Item removed from favorites.', 'success');
+            } else {
+                set_flash_message('Failed to remove item from favorites.', 'error');
+            }
+        } else {
+            // Add to favorites
+            $stmt = $conn->prepare("INSERT INTO favorites (customer_id, item_id, created_at) VALUES (?, ?, NOW())");
+            $stmt->bind_param("ii", $customer_id, $item_id);
+            if ($stmt->execute()) {
+                set_flash_message('Item added to favorites!', 'success');
+            } else {
+                set_flash_message('Failed to add item to favorites.', 'error');
+            }
+        }
+        $stmt->close();
+        header('Location: menu.php#menu');
+        exit();
+    }
+
+    // Existing cart actions
     if ($action === 'add_to_cart' && validate_csrf_token($_POST['csrf_token'])) {
         $quantity = isset($_POST['quantity']) ? max(1, (int)$_POST['quantity']) : 1;
         $result = add_to_cart($item_id, $quantity);
@@ -94,6 +155,15 @@ $menuItems = get_menu_items();
                 transform: rotate(360deg);
             }
         }
+
+        .favorite-btn i {
+            transition: color 0.3s ease;
+        }
+
+        .favorite-btn.favorited i {
+            color: #ef4444;
+            /* Red for filled heart */
+        }
     </style>
 </head>
 
@@ -127,7 +197,7 @@ $menuItems = get_menu_items();
                                 <span class="absolute top-1 right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-amber-600 rounded-full"><?php echo $cart_item_count; ?></span>
                             <?php endif; ?>
                         </button>
-                        <a href="../customers/dashboard.php" class="py-2 px-4 font-semibold text-gray-500 hover:text-amber-600 transition duration-300">Dashboard</a>
+                        <a href="../customers/dashboard.php" class="py-4 px-2 text-gray-500 font-semibold hover:text-amber-600 transition duration-300">Dashboard</a>
                         <a href="../auth/logout.php" class="py-2 px-4 font-medium text-white bg-amber-600 rounded hover:bg-amber-500 transition duration-300">Logout</a>
                     <?php else: ?>
                         <a href="../auth/login.php" class="py-2 px-4 font-semibold text-gray-500 hover:text-amber-600 transition duration-300">Log In</a>
@@ -167,118 +237,225 @@ $menuItems = get_menu_items();
     </div>
 
     <!-- Menu Section -->
-    <section id="menu" class="py-16 bg-gray-50">
-        <div class="container mx-auto px-4">
-            <h2 class="text-3xl font-bold text-center mb-4">Full Menu</h2>
-            <p class="text-gray-600 text-center max-w-2xl mx-auto mb-6">Browse our complete selection of coffees, pastries, and light meals prepared with the finest ingredients.</p>
+    <section id="menu" class="py-16 bg-gradient-to-b from-amber-50 to-white">
+        <div class="container mx-auto px-4 max-w-7xl">
+            <!-- Header with decorative elements -->
+            <div class="relative mb-12 text-center">
+                <div class="absolute left-1/2 transform -translate-x-1/2 -top-10 w-24 h-1 bg-amber-600 rounded-full opacity-50"></div>
+                <h2 class="text-4xl font-bold text-gray-800 mb-4 relative inline-block">
+                    <span class="relative z-10">Our Menu</span>
+                    <svg class="absolute -bottom-2 left-0 w-full h-3 text-amber-200 z-0" viewBox="0 0 200 8">
+                        <path d="M0,5 C50,0 150,0 200,5" fill="none" stroke="currentColor" stroke-width="3"></path>
+                    </svg>
+                </h2>
+                <p class="text-gray-600 max-w-2xl mx-auto mb-6 text-lg">Discover our artisanal coffees, freshly baked pastries, and seasonal delights crafted with locally sourced ingredients.</p>
+            </div>
 
-            <!-- Search and Filter Section -->
-            <div class="mb-10">
+            <!-- Search and Filter Section - Enhanced with animations and better spacing -->
+            <div class="mb-10 bg-white rounded-2xl shadow-lg p-6 transition-all duration-300 hover:shadow-xl">
                 <!-- Search Bar -->
-                <div class="flex justify-center mb-6">
-                    <div class="relative w-full max-w-md">
-                        <input type="text" id="menuSearch" placeholder="Search by name or description..." class="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500">
-                        <span class="absolute right-3 top-2.5 text-gray-400">
-                            <i class="fas fa-search"></i>
+                <div class="flex justify-center mb-8">
+                    <div class="relative w-full max-w-lg">
+                        <input type="text" id="menuSearch" placeholder="Search our menu..." class="w-full px-5 py-3 border-2 border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-300 pl-12 text-gray-700">
+                        <span class="absolute left-4 top-3.5 text-amber-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
                         </span>
                     </div>
                 </div>
 
-                <!-- Filters -->
-                <div class="flex flex-wrap justify-center gap-4">
-                    <!-- Category Filter -->
-                    <div class="flex flex-wrap justify-center gap-2">
-                        <button class="category-btn bg-amber-600 text-white py-2 px-6 rounded-full" data-category="all">All</button>
-                        <?php
-                        $categories = get_categories();
-                        foreach ($categories as $category) {
-                            echo '<button class="category-btn bg-white text-gray-700 hover:bg-amber-600 hover:text-white py-2 px-6 rounded-full transition duration-300" data-category="' . $category['category_id'] . '">' . htmlspecialchars($category['name']) . '</button>';
-                        }
-                        ?>
+                <!-- Filters with better styling -->
+                <div class="space-y-6">
+                    <!-- Category Tabs - Horizontal scrollable on mobile -->
+                    <div class="overflow-x-auto pb-2 -mx-2 px-2">
+                        <div class="flex gap-2 min-w-max">
+                            <button class="category-btn bg-amber-600 text-white py-2.5 px-6 rounded-full text-sm font-medium shadow-sm" data-category="all">All Items</button>
+                            <?php
+                            $categories = get_categories();
+                            foreach ($categories as $category) {
+                                echo '<button class="category-btn bg-gray-100 text-gray-700 hover:bg-amber-500 hover:text-white py-2.5 px-6 rounded-full text-sm font-medium transition duration-300 shadow-sm" data-category="' . $category['category_id'] . '">' . htmlspecialchars($category['name']) . '</button>';
+                            }
+                            ?>
+                        </div>
                     </div>
 
-                    <!-- Sort and Additional Filters -->
-                    <div class="flex flex-wrap justify-center gap-4">
-                        <!-- Sort by Price -->
-                        <select id="sortPrice" class="px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500">
-                            <option value="">Sort by Price</option>
-                            <option value="asc">Price: Low to High</option>
-                            <option value="desc">Price: High to Low</option>
-                        </select>
+                    <!-- Advanced Filters - Responsive grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <!-- Sort by Price - Enhanced dropdown -->
+                        <div class="relative">
+                            <select id="sortPrice" class="appearance-none w-full bg-gray-100 px-4 py-3 rounded-full text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 border-0">
+                                <option value="">Sort by Price</option>
+                                <option value="asc">Price: Low to High</option>
+                                <option value="desc">Price: High to Low</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-600">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
 
-                        <!-- Filter by Availability -->
-                        <select id="filterAvailability" class="px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500">
-                            <option value="">Filter by Availability</option>
-                            <option value="available">Available Only</option>
-                            <option value="unavailable">Unavailable Only</option>
-                        </select>
+                        <!-- Filter by Availability - Enhanced dropdown -->
+                        <div class="relative">
+                            <select id="filterAvailability" class="appearance-none w-full bg-gray-100 px-4 py-3 rounded-full text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 border-0">
+                                <option value="">Availability</option>
+                                <option value="available">Available Now</option>
+                                <option value="unavailable">Coming Soon</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-600">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
 
-                        <!-- Filter by Allergens -->
-                        <select id="filterAllergens" class="px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500">
-                            <option value="">Filter by Allergens</option>
-                            <option value="none">No Allergens</option>
-                            <option value="nuts">Contains Nuts</option>
-                            <option value="dairy">Contains Dairy</option>
-                            <option value="gluten">Contains Gluten</option>
-                        </select>
+                        <!-- Filter by Allergens - Enhanced dropdown -->
+                        <div class="relative">
+                            <select id="filterAllergens" class="appearance-none w-full bg-gray-100 px-4 py-3 rounded-full text-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-500 border-0">
+                                <option value="">Dietary Needs</option>
+                                <option value="none">Allergen Free</option>
+                                <option value="nuts">Contains Nuts</option>
+                                <option value="dairy">Contains Dairy</option>
+                                <option value="gluten">Contains Gluten</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-600">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Loading Spinner -->
-            <div id="loadingSpinner" class="hidden flex justify-center items-center mb-6">
-                <div class="spinner"></div>
+            <!-- Loading Spinner - Enhanced -->
+            <div id="loadingSpinner" class="hidden flex justify-center items-center my-12">
+                <div class="spinner relative w-12 h-12">
+                    <div class="absolute top-0 left-0 w-full h-full border-4 border-amber-200 rounded-full"></div>
+                    <div class="absolute top-0 left-0 w-full h-full border-4 border-amber-600 rounded-full border-t-transparent animate-spin"></div>
+                </div>
             </div>
 
-            <!-- Menu Items Grid -->
+            <!-- Empty State Message -->
+            <div id="emptyState" class="hidden py-12 text-center">
+                <svg class="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9.75 3.104c-.734-.588-1.826-.588-2.56 0C5.954 4.129 3 6.371 3 9.475c0 3.813 3.8 6.471 8.5 10.686a.75.75 0 001 0c4.7-4.215 8.5-6.873 8.5-10.686 0-3.104-2.954-5.346-4.19-6.371-.734-.588-1.826-.588-2.56 0l-.5.4-.5-.4z" />
+                </svg>
+                <h3 class="mt-4 text-lg font-medium text-gray-900">No items found</h3>
+                <p class="mt-2 text-gray-500">Try adjusting your search or filter criteria</p>
+                <button id="resetFilters" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-full shadow-sm text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500">
+                    Reset All Filters
+                </button>
+            </div>
+
+            <!-- Menu Items Grid - Enhanced cards with hover effects -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="menu-items-container">
                 <?php
                 if (empty($menuItems)) {
                     echo '<p class="text-center text-gray-600 col-span-full">No menu items available at the moment.</p>';
                 } else {
                     foreach ($menuItems as $item) {
+                        $is_favorited = is_logged_in() && in_array($item['item_id'], $user_favorites);
+                        $categories = explode(',', $item['category_name'] ?? 'Uncategorized');
                 ?>
-                        <div class="bg-white rounded-lg shadow-md overflow-hidden menu-card"
+                        <div class="bg-white rounded-xl shadow-md overflow-hidden menu-card group transition-all duration-300 hover:shadow-xl transform hover:-translate-y-1"
                             data-category="<?php echo $item['category_id'] ?: 'uncategorized'; ?>"
                             data-name="<?php echo htmlspecialchars(strtolower($item['name'])); ?>"
                             data-description="<?php echo htmlspecialchars(strtolower($item['description'])); ?>"
                             data-price="<?php echo $item['price']; ?>"
                             data-available="<?php echo $item['is_available'] ? 'true' : 'false'; ?>"
                             data-allergens="<?php echo htmlspecialchars(strtolower($item['allergens'] ?? '')); ?>">
-                            <img src="<?php echo htmlspecialchars($item['image_url'] ?: 'https://via.placeholder.com/400x300'); ?>" alt="<?php echo htmlspecialchars($item['name']); ?>" class="w-full h-48 object-cover">
-                            <div class="p-6">
-                                <div class="flex justifications-between items-center mb-2">
-                                    <h3 class="text-xl font-semibold"><?php echo htmlspecialchars($item['name']); ?></h3>
-                                    <span class="text-amber-600 font-bold">₱<?php echo number_format($item['price'], 2); ?></span>
-                                </div>
-                                <p class="text-gray-600 mb-3"><?php echo htmlspecialchars($item['description']); ?></p>
-                                <div class="space-y-2 mb-4">
-                                    <span class="inline-block bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm"><?php echo htmlspecialchars($item['category_name'] ?? 'Uncategorized'); ?></span>
-                                    <span class="inline-block px-3 py-1 rounded-full text-sm <?php echo $item['is_available'] ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
-                                        <?php echo $item['is_available'] ? 'Available' : 'Unavailable'; ?>
-                                    </span>
-                                    <?php if ($item['calories'] !== null): ?>
-                                        <span class="inline-block bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm"><?php echo $item['calories']; ?> cal</span>
-                                    <?php endif; ?>
-                                    <?php if ($item['allergens']): ?>
-                                        <span class="inline-block bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm">Allergens: <?php echo htmlspecialchars($item['allergens']); ?></span>
-                                    <?php endif; ?>
-                                    <?php if ($item['prep_time'] !== null): ?>
-                                        <span class="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">Prep: <?php echo $item['prep_time']; ?> min</span>
-                                    <?php endif; ?>
-                                </div>
+                            <div class="relative overflow-hidden h-56">
+                                <img src="<?php echo htmlspecialchars($item['image_url'] ?: 'https://via.placeholder.com/400x300'); ?>"
+                                    alt="<?php echo htmlspecialchars($item['name']); ?>"
+                                    class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+
+                                <!-- Color overlay on top of image for better text contrast -->
+                                <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-30"></div>
+
                                 <?php if (is_logged_in()): ?>
-                                    <form method="POST" action="menu.php">
+                                    <form method="POST" action="menu.php" class="absolute top-3 right-3 z-10">
                                         <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
-                                        <input type="hidden" name="action" value="add_to_cart">
+                                        <input type="hidden" name="action" value="toggle_favorite">
                                         <input type="hidden" name="item_id" value="<?php echo $item['item_id']; ?>">
-                                        <button type="submit" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-full transition duration-300 flex items-center justify-center" <?php echo !$item['is_available'] ? 'disabled' : ''; ?>>
-                                            <i class="fas fa-cart-plus mr-2"></i> Add to Cart
+                                        <button type="submit" class="favorite-btn flex items-center justify-center w-10 h-10 rounded-full bg-white bg-opacity-70 backdrop-blur-sm hover:bg-opacity-100 transition-all duration-300" title="<?php echo $is_favorited ? 'Remove from Favorites' : 'Add to Favorites'; ?>">
+                                            <svg class="w-5 h-5 <?php echo $is_favorited ? 'text-red-500' : 'text-gray-400'; ?>" fill="<?php echo $is_favorited ? 'currentColor' : 'none'; ?>" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                            </svg>
                                         </button>
                                     </form>
+                                <?php endif; ?>
+
+                                <!-- Price Tag -->
+                                <div class="absolute bottom-3 right-3 bg-white bg-opacity-90 backdrop-blur-sm px-3 py-1 rounded-full text-amber-600 font-bold shadow-md">
+                                    ₱<?php echo number_format($item['price'], 2); ?>
+                                </div>
+                            </div>
+
+                            <div class="p-6">
+                                <h3 class="text-xl font-bold text-gray-800 mb-2"><?php echo htmlspecialchars($item['name']); ?></h3>
+
+                                <p class="text-gray-600 mb-4 line-clamp-2 group-hover:line-clamp-none transition-all duration-300"><?php echo htmlspecialchars($item['description']); ?></p>
+
+                                <!-- Tags Section -->
+                                <div class="flex flex-wrap gap-2 mb-5">
+                                    <?php foreach ($categories as $category): ?>
+                                        <span class="inline-block bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-medium"><?php echo trim(htmlspecialchars($category)); ?></span>
+                                    <?php endforeach; ?>
+
+                                    <span class="inline-block px-3 py-1 rounded-full text-xs font-medium <?php echo $item['is_available'] ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
+                                        <?php echo $item['is_available'] ? 'Available Now' : 'Unavailable'; ?>
+                                    </span>
+
+                                    <?php if ($item['calories'] !== null): ?>
+                                        <span class="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium"><?php echo $item['calories']; ?> calories</span>
+                                    <?php endif; ?>
+
+                                    <?php if ($item['prep_time'] !== null): ?>
+                                        <span class="inline-block bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-xs font-medium"><?php echo $item['prep_time']; ?> min prep</span>
+                                    <?php endif; ?>
+                                </div>
+
+                                <!-- Allergen Warning if applicable -->
+                                <?php if ($item['allergens']): ?>
+                                    <div class="flex items-center gap-2 mb-4 p-2 rounded-lg bg-red-50 border border-red-100">
+                                        <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        <span class="text-xs text-red-700">Contains: <?php echo htmlspecialchars($item['allergens']); ?></span>
+                                    </div>
+                                <?php endif; ?>
+
+                                <!-- Action Buttons -->
+                                <?php if (is_logged_in()): ?>
+                                    <div class="flex gap-2">
+                                        <form method="POST" action="menu.php" class="w-full">
+                                            <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                                            <input type="hidden" name="action" value="add_to_cart">
+                                            <input type="hidden" name="item_id" value="<?php echo $item['item_id']; ?>">
+                                            <button type="submit" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-3 px-4 rounded-full transition duration-300 flex items-center justify-center <?php echo !$item['is_available'] ? 'opacity-50 cursor-not-allowed' : ''; ?>" <?php echo !$item['is_available'] ? 'disabled' : ''; ?>>
+                                                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                                </svg>
+                                                <?php echo $item['is_available'] ? 'Add to Cart' : 'Currently Unavailable'; ?>
+                                            </button>
+                                        </form>
+
+                                        <!-- Quick View Button -->
+                                        <button type="button" class="quick-view-btn bg-gray-100 hover:bg-gray-200 text-gray-700 p-3 rounded-full transition duration-300" data-item-id="<?php echo $item['item_id']; ?>">
+                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                 <?php else: ?>
-                                    <a href="../auth/login.php" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-full transition duration-300 flex items-center justify-center">
-                                        <i class="fas fa-sign-in-alt mr-2"></i> Login to Order
+                                    <a href="../auth/login.php" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-3 px-4 rounded-full transition duration-300 flex items-center justify-center">
+                                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                                        </svg>
+                                        Login to Order
                                     </a>
                                 <?php endif; ?>
                             </div>
@@ -289,9 +466,56 @@ $menuItems = get_menu_items();
                 ?>
             </div>
 
-            <!-- Back to Home Button -->
-            <div class="text-center mt-12">
-                <a href="../index.php" class="inline-block border-2 border-amber-600 text-amber-600 hover:bg-amber-600 hover:text-white font-semibold py-2 px-6 rounded-full transition duration-300">Back to Home</a>
+            <!-- Pagination -->
+            <div class="mt-12 flex justify-center">
+                <nav class="flex items-center space-x-2" aria-label="Pagination">
+                    <a href="#" class="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-amber-100">
+                        <span class="sr-only">Previous</span>
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </a>
+                    <a href="#" class="px-3 py-1 rounded-md bg-amber-600 text-white">1</a>
+                    <a href="#" class="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-amber-100">2</a>
+                    <a href="#" class="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-amber-100">3</a>
+                    <span class="px-3 py-1 text-gray-500">...</span>
+                    <a href="#" class="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-amber-100">8</a>
+                    <a href="#" class="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-amber-100">
+                        <span class="sr-only">Next</span>
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Quick View Modal -->
+            <div id="quickViewModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+                <div class="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-2xl font-bold text-gray-800" id="modalItemName">Item Name</h3>
+                            <button id="closeModal" class="text-gray-500 hover:text-gray-700 focus:outline-none">
+                                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="modal-content">
+                            <!-- Dynamic content loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Back to Home Button - Enhanced -->
+            <div class="text-center mt-16">
+                <a href="../../index.php" class="inline-flex items-center px-6 py-3 border-2 border-amber-600 text-amber-600 hover:bg-amber-600 hover:text-white font-semibold rounded-full transition duration-300 group">
+                    <svg class="w-5 h-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Home
+                </a>
             </div>
         </div>
     </section>
@@ -414,6 +638,8 @@ $menuItems = get_menu_items();
     </button>
 
     <!-- Scripts -->
+    <script src="/assets/js/menu.js"></script>
+
     <script>
         // Modal toggle function
         function toggleModal(modalId) {
@@ -645,6 +871,7 @@ $menuItems = get_menu_items();
                 });
             }
         });
+
     </script>
 </body>
 

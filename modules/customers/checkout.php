@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Clear the cart
         unset($_SESSION['cart']);
-        set_flash_message('Order placed successfully! You used ' . $points_to_use . ' loyalty points.', 'success');
+        set_flash_message('Order placed successfully! You used ' . $points_to_use . ' loyalty points and saved $' . number_format($discount, 2) . '.', 'success');
         header('Location: orders.php?id=' . $order_id);
         exit();
     } else {
@@ -128,6 +128,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Checkout - Casa Baraka</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .error-text {
+            color: #ef4444;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+    </style>
 </head>
 
 <body class="bg-gray-100">
@@ -143,24 +154,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php foreach ($cart as $item): ?>
                     <div class="flex justify-between">
                         <span><?php echo htmlspecialchars($item['name']); ?> (x<?php echo $item['quantity']; ?>)</span>
-                        <span>$<?php echo number_format($item['price'] * $item['quantity'], 2); ?></span>
+                        <span>₱<?php echo number_format($item['price'] * $item['quantity'], 2); ?></span>
                     </div>
                 <?php endforeach; ?>
                 <div class="border-t pt-2">
                     <div class="flex justify-between font-semibold">
                         <span>Subtotal:</span>
-                        <span>$<?php echo number_format($total, 2); ?></span>
+                        <span>₱<?php echo number_format($total, 2); ?></span>
                     </div>
                 </div>
             </div>
 
-            <form method="POST" class="mt-6">
+            <form method="POST" class="mt-6" onsubmit="return validateForm()">
                 <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
 
                 <!-- Order Type -->
                 <div class="mb-4">
                     <label class="block text-gray-700 mb-2">Order Type</label>
-                    <select name="order_type" id="order_type" class="w-full px-3 py-2 border rounded-lg" onchange="toggleOrderFields()">
+                    <select name="order_type" id="order_type" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" onchange="toggleOrderFields()" required>
                         <option value="Dine-in">Dine-in</option>
                         <option value="Takeout">Takeout</option>
                         <option value="Delivery">Delivery</option>
@@ -170,7 +181,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <!-- Table Selection (for Dine-in) -->
                 <div id="table_field" class="mb-4 hidden">
                     <label class="block text-gray-700 mb-2">Select Table</label>
-                    <select name="table_id" class="w-full px-3 py-2 border rounded-lg">
+                    <select name="table_id" id="table_id" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        <option value="">Select a table</option>
                         <?php
                         $tables = $conn->query("SELECT table_id, table_number FROM restaurant_tables WHERE status = 'Available'");
                         while ($table = $tables->fetch_assoc()):
@@ -178,19 +190,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <option value="<?php echo $table['table_id']; ?>">Table #<?php echo $table['table_number']; ?></option>
                         <?php endwhile; ?>
                     </select>
+                    <p id="table_error" class="error-text hidden">Please select a table for Dine-in orders.</p>
                 </div>
 
                 <!-- Delivery Address (for Delivery) -->
                 <div id="delivery_field" class="mb-4 hidden">
                     <label class="block text-gray-700 mb-2">Delivery Address</label>
-                    <input type="text" name="delivery_address" class="w-full px-3 py-2 border rounded-lg" placeholder="Enter your address">
+                    <input type="text" name="delivery_address" id="delivery_address" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" placeholder="Enter your address">
+                    <p id="delivery_error" class="error-text hidden">Please provide a delivery address.</p>
                 </div>
 
                 <!-- Loyalty Points Redemption -->
                 <div class="mb-4">
                     <label class="block text-gray-700 mb-2">Redeem Loyalty Points (10 points = $1)</label>
                     <p class="text-sm text-gray-500 mb-2">You have <?php echo $loyalty_points; ?> points available.</p>
-                    <input type="number" name="redeem_points" min="0" max="<?php echo $loyalty_points; ?>" value="0" class="w-full px-3 py-2 border rounded-lg" onchange="updateTotal()">
+                    <input type="number" name="redeem_points" id="redeem_points" min="0" max="<?php echo $loyalty_points; ?>" value="0" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" onchange="updateTotal()">
                     <p class="text-sm text-gray-500 mt-1">Max points usable for this order: <?php echo floor($total * 10); ?></p>
                 </div>
 
@@ -198,22 +212,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="mb-4">
                     <div class="flex justify-between font-semibold">
                         <span>Delivery Fee:</span>
-                        <span id="delivery_fee">$0.00</span>
+                        <span id="delivery_fee">₱0.00</span>
                     </div>
                     <div class="flex justify-between font-semibold">
-                        <span>Discount:</span>
-                        <span id="discount">$0.00</span>
+                        <span>Discount (from points):</span>
+                        <span id="discount">₱0.00</span>
                     </div>
                     <div class="flex justify-between font-semibold text-lg">
                         <span>Total:</span>
-                        <span id="adjusted_total">$<?php echo number_format($total, 2); ?></span>
+                        <span id="adjusted_total">₱<?php echo number_format($total, 2); ?></span>
                     </div>
                 </div>
 
                 <!-- Payment Method -->
                 <div class="mb-4">
                     <label class="block text-gray-700 mb-2">Payment Method</label>
-                    <select name="payment_method" class="w-full px-3 py-2 border rounded-lg">
+                    <select name="payment_method" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" required>
                         <option value="Cash">Cash</option>
                         <option value="Card">Credit/Debit Card</option>
                     </select>
@@ -222,10 +236,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <!-- Notes -->
                 <div class="mb-4">
                     <label class="block text-gray-700 mb-2">Additional Notes (Optional)</label>
-                    <textarea name="notes" class="w-full px-3 py-2 border rounded-lg" rows="3" placeholder="Any special requests?"></textarea>
+                    <textarea name="notes" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" rows="3" placeholder="Any special requests?"></textarea>
                 </div>
 
-                <button type="submit" class="w-full bg-amber-600 text-white py-3 rounded-lg hover:bg-amber-500">Place Order</button>
+                <button type="submit" class="w-full bg-amber-600 text-white py-3 rounded-lg hover:bg-amber-500 transition duration-300">Place Order</button>
             </form>
         </div>
     </div>
@@ -238,29 +252,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             const deliveryField = document.getElementById('delivery_field');
             const deliveryFeeElement = document.getElementById('delivery_fee');
             const adjustedTotalElement = document.getElementById('adjusted_total');
+            const tableIdSelect = document.getElementById('table_id');
+            const deliveryAddressInput = document.getElementById('delivery_address');
 
             let deliveryFee = 0;
             if (orderType === 'Delivery') {
                 tableField.classList.add('hidden');
                 deliveryField.classList.remove('hidden');
+                deliveryAddressInput.setAttribute('required', 'required');
+                tableIdSelect.removeAttribute('required');
                 deliveryFee = 5.00; // Example delivery fee
             } else if (orderType === 'Dine-in') {
                 tableField.classList.remove('hidden');
                 deliveryField.classList.add('hidden');
+                tableIdSelect.setAttribute('required', 'required');
+                deliveryAddressInput.removeAttribute('required');
                 deliveryFee = 0;
             } else {
                 tableField.classList.add('hidden');
                 deliveryField.classList.add('hidden');
+                tableIdSelect.removeAttribute('required');
+                deliveryAddressInput.removeAttribute('required');
                 deliveryFee = 0;
             }
 
-            deliveryFeeElement.textContent = `$${deliveryFee.toFixed(2)}`;
+            deliveryFeeElement.textContent = `₱${deliveryFee.toFixed(2)}`;
             updateTotal();
         }
 
         function updateTotal() {
             const orderType = document.getElementById('order_type').value;
-            const redeemPoints = parseInt(document.querySelector('input[name="redeem_points"]').value) || 0;
+            const redeemPoints = parseInt(document.getElementById('redeem_points').value) || 0;
             const subtotal = <?php echo $total; ?>;
             const deliveryFee = orderType === 'Delivery' ? 5.00 : 0;
 
@@ -269,8 +291,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             let adjustedTotal = subtotal - discount + deliveryFee;
             if (adjustedTotal < 0) adjustedTotal = 0;
 
-            document.getElementById('discount').textContent = `$${discount.toFixed(2)}`;
-            document.getElementById('adjusted_total').textContent = `$${adjustedTotal.toFixed(2)}`;
+            document.getElementById('discount').textContent = `₱${discount.toFixed(2)}`;
+            document.getElementById('adjusted_total').textContent = `₱${adjustedTotal.toFixed(2)}`;
+        }
+
+        function validateForm() {
+            const orderType = document.getElementById('order_type').value;
+            const tableId = document.getElementById('table_id');
+            const deliveryAddress = document.getElementById('delivery_address');
+            const tableError = document.getElementById('table_error');
+            const deliveryError = document.getElementById('delivery_error');
+
+            let isValid = true;
+
+            // Reset error messages
+            tableError.classList.add('hidden');
+            deliveryError.classList.add('hidden');
+
+            if (orderType === 'Dine-in' && (!tableId.value || tableId.value === '')) {
+                tableError.classList.remove('hidden');
+                isValid = false;
+            }
+
+            if (orderType === 'Delivery' && (!deliveryAddress.value || deliveryAddress.value.trim() === '')) {
+                deliveryError.classList.remove('hidden');
+                isValid = false;
+            }
+
+            return isValid;
         }
 
         // Initialize fields on page load

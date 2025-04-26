@@ -13,12 +13,7 @@ $conn = db_connect();
 // Get user data
 $user = get_user_by_id($user_id);
 
-
-
 $customer = get_customer_data($user_id);
-
-// Define get_recent_orders function
-
 
 $orders = get_recent_orders($user_id, 5);
 
@@ -47,6 +42,8 @@ $reservations = get_upcoming_reservations($user_id);
 
 $page_title = "Dashboard";
 $current_page = "dashboard";
+
+$is_home = false;
 ?>
 
 <!DOCTYPE html>

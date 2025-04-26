@@ -1,14 +1,4 @@
 <?php
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start([
-        'cookie_lifetime' => 86400, // 1 day
-        'cookie_secure'   => true,
-        'cookie_httponly' => true,
-        'cookie_samesite' => 'Strict',
-        'use_strict_mode' => true
-    ]);
-}
 require_once __DIR__ . '/../includes/functions.php'; // Assuming this connects to your database
 require_once __DIR__ . '/../controller/OrderController.php';
 require_once __DIR__ . '/../controller/MenuController.php'; // Assuming this connects to your database
@@ -104,7 +94,7 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
                     </div>
                     <!-- Primary Navigation -->
                     <div class="hidden md:flex items-center space-x-1">
-                        <a href="/" class="py-4 px-2 font-semibold transition duration-300 <?php echo $is_home ? 'text-amber-600 border-b-4 border-amber-600' : 'text-gray-500 hover:text-amber-600' ?>">Home</a>
+                        <a href="/index.php" class="py-4 px-2 font-semibold transition duration-300 <?php echo $is_home ? 'text-amber-600 border-b-4 border-amber-600' : 'text-gray-500 hover:text-amber-600' ?>">Home</a>
                         <a href="/index.php#menu" class="py-4 px-2 font-semibold transition duration-300 <?php echo ($current_page === 'menu.php' || strpos($_SERVER['REQUEST_URI'], '#menu') !== false) ? 'text-amber-600 border-b-4 border-amber-600' : 'text-gray-500 hover:text-amber-600' ?>">Menu</a>
                         <a href="/index.php#about" class="py-4 px-2 font-semibold transition duration-300 <?php echo strpos($_SERVER['REQUEST_URI'], '#about') !== false ? 'text-amber-600 border-b-4 border-amber-600' : 'text-gray-500 hover:text-amber-600' ?>">About</a>
                         <a href="/index.php#contact" class="py-4 px-2 font-semibold transition duration-300 <?php echo strpos($_SERVER['REQUEST_URI'], '#contact') !== false ? 'text-amber-600 border-b-4 border-amber-600' : 'text-gray-500 hover:text-amber-600' ?>">Contact</a>

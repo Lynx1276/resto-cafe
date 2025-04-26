@@ -227,11 +227,11 @@ include __DIR__ . '/includes/header.php';
     </style>
 </head>
 
-<body class="bg-amber-50 font-sans min-h-screen">
+<body class="bg-amber-50 font-sans h-screen">
     <div class="flex h-screen">
         <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
-        <div class="flex-1 flex flex-col overflow-hidden">
+        <div class="flex-1 flex flex-col overflow-x-hidden">
             <!-- Top Navigation -->
             <header class="bg-white shadow-sm z-10 border-b border-amber-100">
                 <div class="flex items-center justify-between p-4 lg:mx-auto lg:max-w-7xl">

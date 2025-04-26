@@ -9,74 +9,78 @@ $conn = db_connect();
 $user = get_user_by_id($user_id);
 $customer = get_customer_data($user_id);
 
-// Get available tables
-$tables = get_available_tables();
+    // Get customer ID
+    $customer_id = get_customer_id($user_id);
+    if (!$customer_id) {
+        set_flash_message('Customer ID not found. Please ensure your account is properly set up.', 'error');
+        header('Location: reservation.php');
+        exit();
+    }
+// Get available table
+$table = get_available_tables();
 
 $page_title = "Reservations";
 $current_page = "reservations";
 
-// Handle reservation submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $reservation_date = $_POST['reservation_date'];
-    $reservation_time = $_POST['reservation_time'];
-    $party_size = (int)$_POST['party_size'];
-    $table_id = $_POST['table_id'];
-    $special_requests = trim($_POST['special_requests'] ?? '');
+$is_home = false;
 
-    // Validate inputs
-    if (empty($reservation_date)) {
-        set_flash_message('Please select a date', 'error');
-    } elseif (empty($reservation_time)) {
-        set_flash_message('Please select a time', 'error');
-    } elseif ($party_size < 1) {
-        set_flash_message('Please enter a valid party size', 'error');
-    } elseif (empty($table_id)) {
-        set_flash_message('Please select a table', 'error');
-    } else {
-        // Combine date and time
-        $start_time = date('Y-m-d H:i:s', strtotime("$reservation_date $reservation_time"));
-        $end_time = date('Y-m-d H:i:s', strtotime("$start_time +2 hours"));
+    // Handle reservation submission
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $reservation_date = $_POST['reservation_date'];
+        $reservation_time = $_POST['reservation_time'];
+        $party_size = (int)$_POST['party_size'];
+        $table_id = $_POST['table_id'];
+        $special_requests = trim($_POST['special_requests'] ?? '');
 
-        // Create reservation
-        $stmt = $conn->prepare("
+        // Validate inputs
+        if (empty($reservation_date)) {
+            set_flash_message('Please select a date', 'error');
+        } elseif (empty($reservation_time)) {
+            set_flash_message('Please select a time', 'error');
+        } elseif ($party_size < 1) {
+            set_flash_message('Please enter a valid party size', 'error');
+        } elseif (empty($table_id)) {
+            set_flash_message('Please select a table', 'error');
+        } else {
+            // Combine date and time
+            $start_time = date('Y-m-d H:i:s', strtotime("$reservation_date $reservation_time"));
+            $end_time = date('Y-m-d H:i:s', strtotime("$start_time +2 hours"));
+
+            // Create reservation
+            $stmt = $conn->prepare("
             INSERT INTO reservations 
             (customer_id, table_id, reservation_date, start_time, end_time, party_size, notes, status) 
             VALUES (?, ?, ?, ?, ?, ?, ?, 'Confirmed')
         ");
-        $stmt->bind_param(
-            "iisssis",
-            $user_id,
-            $table_id,
-            $reservation_date,
-            $start_time,
-            $end_time,
-            $party_size,
-            $special_requests
-        );
+            $stmt->bind_param(
+                "iisssis",
+                $customer_id,  // Use customer_id instead of user_id
+                $table_id,
+                $reservation_date,
+                $start_time,
+                $end_time,
+                $party_size,
+                $special_requests
+            );
 
-        if ($stmt->execute()) {
-            // Update table status
-            $conn->query("UPDATE restaurant_tables SET status = 'Reserved' WHERE table_id = $table_id");
+            if ($stmt->execute()) {
+                // Update table status
+                $stmt = $conn->prepare("UPDATE restaurant_tables SET status = 'Reserved' WHERE table_id = ?");
+                $stmt->bind_param("i", $table_id);
+                $stmt->execute();
+                $stmt->close();
 
-            set_flash_message('Reservation confirmed!', 'success');
-            header('Location: reservations.php');
-            exit();
-        } else {
-            set_flash_message('Failed to make reservation. Please try again.', 'error');
+                set_flash_message('Reservation confirmed!', 'success');
+                header('Location: reservation.php');
+                exit();
+            } else {
+                set_flash_message('Failed to make reservation. Please try again.', 'error');
+            }
+            $stmt->close();
         }
     }
-}
 
-function get_available_tables()
-{
-    $conn = db_connect();
-    $result = $conn->query("
-        SELECT * FROM restaurant_tables 
-        WHERE status = 'Available' AND capacity >= 2
-        ORDER BY capacity
-    ");
-    return $result->fetch_all(MYSQLI_ASSOC);
-}
+
 ?>
 
 <!DOCTYPE html>
@@ -253,11 +257,11 @@ function get_available_tables()
                                         <select id="table_id" name="table_id" required
                                             class="form-input w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 appearance-none">
                                             <option value="">Select a table</option>
-                                            <?php foreach ($tables as $table): ?>
-                                                <option value="<?= $table['table_id'] ?>"
-                                                    data-capacity="<?= $table['capacity'] ?>"
-                                                    <?= isset($_POST['table_id']) && $_POST['table_id'] == $table['table_id'] ? 'selected' : '' ?>>
-                                                    Table #<?= $table['table_number'] ?> (<?= $table['capacity'] ?> seats, <?= $table['location'] ?>)
+                                            <?php foreach ($table as $t): ?>
+                                                <option value="<?= $t['table_id'] ?>"
+                                                    data-capacity="<?= isset($t['capacity']) ? $t['capacity'] : 0 ?>"
+                                                    <?= isset($_POST['table_id']) && $_POST['table_id'] == $t['table_id'] ? 'selected' : '' ?>>
+                                                    Table #<?= $t['table_number'] ?> (<?= isset($t['capacity']) ? $t['capacity'] : 'Unknown' ?> seats, <?= isset($t['location']) ? $t['location'] : 'Unknown' ?>)
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
@@ -327,10 +331,13 @@ function get_available_tables()
 
                 // Disable tables with capacity less than party size
                 Array.from(tableSelect.options).forEach(option => {
-                    if (option.value && parseInt(option.dataset.capacity) < partySize) {
-                        option.disabled = true;
-                        option.classList.add('bg-gray-100', 'text-gray-400');
-                        if (option.selected) option.selected = false;
+                    if (option.value) {
+                        const capacity = parseInt(option.dataset.capacity) || 0;
+                        if (capacity < partySize) {
+                            option.disabled = true;
+                            option.classList.add('bg-gray-100', 'text-gray-400');
+                            if (option.selected) option.selected = false;
+                        }
                     }
                 });
             }

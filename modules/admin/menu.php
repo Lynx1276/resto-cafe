@@ -203,7 +203,7 @@ if (!empty($uncategorized_items)) {
                 </div>
             </header>
 
-            <main class="flex-1 pb-8">
+            <main class="flex-1 pb-8 overflow-y-auto">
                 <!-- Page header -->
                 <div class="">
                     <div class="px-4 sm:px-6 lg:mx-auto lg:max-w-7xl lg:px-8">

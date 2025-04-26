@@ -7,11 +7,9 @@ if (!isset($_SESSION)) {
 require_once __DIR__ . '/controller/MenuController.php';
 require_once __DIR__ . '/includes/functions.php';
 
-
 // Define current page (simplified example - you may need to adjust based on your routing)
 $current_page = basename($_SERVER['PHP_SELF']); // Gets the current filename
 $is_home = ($current_page === 'index.php' || $current_page === '/');
-
 
 // Handle cart actions (only for logged-in users)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -29,6 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $quantity = isset($_POST['quantity']) ? max(1, (int)$_POST['quantity']) : 1;
         $result = add_to_cart($item_id, $quantity);
         set_flash_message($result['message'], $result['success'] ? 'success' : 'error');
+        // Redirect to menu section without opening the cart modal
+        // This ensures the cart modal does not open automatically, even when the action originates from favorites.php
         header('Location: index.php#menu');
         exit();
     }
@@ -94,6 +94,21 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
             background-color: rgba(0, 0, 0, 0.5);
         }
 
+        /* Line clamp for text truncation */
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
         .spinner {
             border: 4px solid rgba(0, 0, 0, 0.1);
             border-left-color: #ca8a04;
@@ -103,7 +118,15 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
             animation: spin 1s linear infinite;
         }
 
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+
         @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
             to {
                 transform: rotate(360deg);
             }
@@ -112,6 +135,7 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
 </head>
 
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <!-- Navigation -->
     <!-- Navigation -->
     <nav class="bg-white shadow-lg fixed w-full z-20">
         <div class="max-w-7xl mx-auto px-4">
@@ -126,10 +150,10 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
                     </div>
                     <!-- Primary Navigation -->
                     <div class="hidden md:flex items-center space-x-1">
-                        <a href="/" class="py-4 px-2 font-semibold transition duration-300 <?php echo $is_home ? 'text-amber-600 border-b-4 border-amber-600' : 'text-gray-500 hover:text-amber-600' ?>">Home</a>
-                        <a href="/index.php#menu" class="py-4 px-2 font-semibold transition duration-300 <?php echo ($current_page === 'menu.php' || strpos($_SERVER['REQUEST_URI'], '#menu') !== false) ? 'text-amber-600 border-b-4 border-amber-600' : 'text-gray-500 hover:text-amber-600' ?>">Menu</a>
-                        <a href="/index.php#about" class="py-4 px-2 font-semibold transition duration-300 <?php echo strpos($_SERVER['REQUEST_URI'], '#about') !== false ? 'text-amber-600 border-b-4 border-amber-600' : 'text-gray-500 hover:text-amber-600' ?>">About</a>
-                        <a href="/index.php#contact" class="py-4 px-2 font-semibold transition duration-300 <?php echo strpos($_SERVER['REQUEST_URI'], '#contact') !== false ? 'text-amber-600 border-b-4 border-amber-600' : 'text-gray-500 hover:text-amber-600' ?>">Contact</a>
+                        <a href="/" class="py-4 px-2 font-semibold transition duration-300 text-gray-500 hover:text-amber-600">Home</a>
+                        <a href="/#menu" class="py-4 px-2 font-semibold transition duration-300 text-gray-500 hover:text-amber-600">Menu</a>
+                        <a href="/#about" class="py-4 px-2 font-semibold transition duration-300 text-gray-500 hover:text-amber-600">About</a>
+                        <a href="/#contact" class="py-4 px-2 font-semibold transition duration-300 text-gray-500 hover:text-amber-600">Contact</a>
                     </div>
                 </div>
                 <!-- Auth Navigation -->
@@ -159,10 +183,10 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
         <!-- Mobile Menu -->
         <div class="hidden mobile-menu">
             <ul>
-                <li><a href="index.php" class="block py-2 px-4 text-sm hover:bg-amber-50">Home</a></li>
-                <li><a href="index.php#menu" class="block py-2 px-4 text-sm hover:bg-amber-50">Menu</a></li>
-                <li><a href="index.php#about" class="block py-2 px-4 text-sm hover:bg-amber-50">About</a></li>
-                <li><a href="index.php#contact" class="block py-2 px-4 text-sm hover:bg-amber-50">Contact</a></li>
+                <li><a href="/" class="block py-2 px-4 text-sm hover:bg-amber-50">Home</a></li>
+                <li><a href="/#menu" class="block py-2 px-4 text-sm hover:bg-amber-50">Menu</a></li>
+                <li><a href="/#about" class="block py-2 px-4 text-sm hover:bg-amber-50">About</a></li>
+                <li><a href="/#contact" class="block py-2 px-4 text-sm hover:bg-amber-50">Contact</a></li>
                 <?php if (is_logged_in()): ?>
                     <li><button onclick="openCartModal()" class="block py-2 px-4 text-sm hover:bg-amber-50 w-full text-left">Cart (<?php echo $cart_item_count; ?>)</button></li>
                     <li><a href="modules/customers/dashboard.php" class="block py-2 px-4 text-sm hover:bg-amber-50">Dashboard</a></li>
@@ -189,39 +213,49 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
         </div>
     </section>
 
-    <!-- Featured Products -->
-    <section class="py-16 bg-white">
+    <!-- Featured Products with Enhanced UI -->
+    <section class="py-20 bg-white">
         <div class="container mx-auto px-4">
-            <h2 class="text-3xl font-bold text-center mb-12">Most Loved Items</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-gray-800 mb-4">Most Loved Items</h2>
+                <div class="w-24 h-1 bg-amber-500 mx-auto"></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
                 <?php
                 $featured_items = get_menu_items(null, true); // Fetch available items
                 $count = 0;
                 foreach ($featured_items as $item) {
                     if ($count >= 3) break;
                 ?>
-                    <div class="bg-white rounded-lg shadow-md overflow-hidden menu-card">
-                        <img src="<?php echo htmlspecialchars($item['image_url'] ?: 'https://via.placeholder.com/400x300'); ?>" alt="<?php echo htmlspecialchars($item['name']); ?>" class="w-full h-56 object-cover">
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden menu-card transform transition duration-300 hover:scale-105 hover:shadow-xl">
+                        <div class="relative">
+                            <img src="<?php echo htmlspecialchars($item['image_url'] ?: 'https://via.placeholder.com/400x300'); ?>" alt="<?php echo htmlspecialchars($item['name']); ?>" class="w-full h-64 object-cover">
+                            <?php if ($item['is_available']): ?>
+                                <div class="absolute top-4 right-4 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">Available</div>
+                            <?php else: ?>
+                                <div class="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">Sold Out</div>
+                            <?php endif; ?>
+                        </div>
                         <div class="p-6">
-                            <div class="flex justify-between items-center mb-2">
-                                <h3 class="text-xl font-semibold"><?php echo htmlspecialchars($item['name']); ?></h3>
-                                <span class="text-amber-600 font-bold">₱<?php echo number_format($item['price'], 2); ?></span>
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-2xl font-bold text-gray-800"><?php echo htmlspecialchars($item['name']); ?></h3>
+                                <span class="text-amber-600 font-bold text-xl">₱<?php echo number_format($item['price'], 2); ?></span>
                             </div>
-                            <p class="text-gray-600 mb-4"><?php echo htmlspecialchars($item['description']); ?></p>
+                            <p class="text-gray-600 mb-6 line-clamp-3"><?php echo htmlspecialchars($item['description']); ?></p>
                             <div class="flex items-center justify-between">
-                                <span class="inline-block bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm"><?php echo htmlspecialchars($item['category_name'] ?? 'Uncategorized'); ?></span>
+                                <span class="inline-block bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-sm font-medium"><?php echo htmlspecialchars($item['category_name'] ?? 'Uncategorized'); ?></span>
                                 <?php if (is_logged_in()): ?>
-                                    <form method="POST" action="index.php">
+                                    <form method="POST" action="index.php" class="w-1/2">
                                         <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
                                         <input type="hidden" name="action" value="add_to_cart">
                                         <input type="hidden" name="item_id" value="<?php echo $item['item_id']; ?>">
-                                        <button type="submit" class="text-amber-600 hover:text-amber-700 font-semibold flex items-center">
-                                            <i class="fas fa-cart-plus mr-2"></i> Add to Cart
+                                        <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-full transition duration-300 flex items-center justify-center" <?php echo !$item['is_available'] ? 'disabled' : ''; ?>>
+                                            <i class="fas fa-cart-plus mr-2"></i> Add
                                         </button>
                                     </form>
                                 <?php else: ?>
-                                    <a href="modules/auth/login.php" class="text-amber-600 hover:text-amber-700 font-semibold flex items-center">
-                                        <i class="fas fa-sign-in-alt mr-2"></i> Login to Order
+                                    <a href="modules/auth/login.php" class="w-1/2 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-full transition duration-300 flex items-center justify-center">
+                                        <i class="fas fa-sign-in-alt mr-2"></i> Login
                                     </a>
                                 <?php endif; ?>
                             </div>
@@ -235,68 +269,110 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
         </div>
     </section>
 
-    <!-- Menu Section -->
-    <section id="menu" class="py-16 bg-gray-50">
+    <!-- Menu Section with Improved UI -->
+    <section id="menu" class="py-20 bg-gray-50">
         <div class="container mx-auto px-4">
-            <h2 class="text-3xl font-bold text-center mb-4">Our Menu</h2>
-            <p class="text-gray-600 text-center max-w-2xl mx-auto mb-12">Explore our delicious selection of coffees, pastries, and light meals prepared with the finest ingredients.</p>
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold text-gray-800 mb-4">Our Menu</h2>
+                <p class="text-gray-600 text-center max-w-2xl mx-auto mb-6">Explore our delicious selection of coffees, pastries, and light meals prepared with the finest ingredients.</p>
+                <div class="w-24 h-1 bg-amber-500 mx-auto"></div>
+            </div>
 
-            <!-- Menu Categories Tabs -->
-            <div class="flex flex-wrap justify-center mb-10">
-                <button class="category-btn bg-amber-600 text-white py-2 px-6 rounded-full mx-2 mb-3" data-category="all">All</button>
+            <!-- Menu Categories Tabs - Improved -->
+            <div class="flex flex-wrap justify-center mb-12">
+                <button class="category-btn bg-amber-600 text-white py-3 px-8 rounded-full mx-2 mb-3 font-semibold shadow-md transform transition duration-300 hover:scale-105" data-category="all">All Items</button>
                 <?php
                 $categories = get_categories();
                 foreach ($categories as $category) {
-                    echo '<button class="category-btn bg-white text-gray-700 hover:bg-amber-600 hover:text-white py-2 px-6 rounded-full mx-2 mb-3 transition duration-300" data-category="' . $category['category_id'] . '">' . htmlspecialchars($category['name']) . '</button>';
+                    echo '<button class="category-btn bg-white text-gray-700 hover:bg-amber-600 hover:text-white py-3 px-8 rounded-full mx-2 mb-3 font-semibold shadow-md transform transition duration-300 hover:scale-105" data-category="' . $category['category_id'] . '">' . htmlspecialchars($category['name']) . '</button>';
                 }
                 ?>
             </div>
 
-            <!-- Loading Spinner -->
-            <div id="loadingSpinner" class="hidden flex justify-center items-center mb-6">
-                <div class="spinner"></div>
+            <!-- Search & Filter Bar -->
+            <div class="bg-white rounded-lg shadow-md p-4 mb-10 flex flex-col md:flex-row items-center justify-between">
+                <div class="relative w-full md:w-1/3 mb-4 md:mb-0">
+                    <input type="text" id="menu-search" placeholder="Search our menu..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="available-only" class="mr-2">
+                        <label for="available-only" class="text-gray-700">Available Only</label>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="text-gray-700 mr-2">Sort By:</span>
+                        <select id="sort-menu" class="border border-gray-300 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            <option value="name">Name</option>
+                            <option value="price-low">Price: Low to High</option>
+                            <option value="price-high">Price: High to Low</option>
+                            <option value="category">Category</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
-            <!-- Menu Items Grid -->
+            <!-- Loading Spinner -->
+            <div id="loadingSpinner" class="hidden flex justify-center items-center mb-6">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-amber-600"></div>
+            </div>
+
+            <!-- Menu Items Grid - Enhanced UI -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="menu-items-container">
                 <?php
                 $menuItems = get_menu_items(null, true); // Fetch available items
                 foreach ($menuItems as $item) {
                 ?>
-                    <div class="bg-white rounded-lg shadow-md overflow-hidden menu-card" data-category="<?php echo $item['category_id'] ?: 'uncategorized'; ?>">
-                        <img src="<?php echo htmlspecialchars($item['image_url'] ?: 'https://via.placeholder.com/400x300'); ?>" alt="<?php echo htmlspecialchars($item['name']); ?>" class="w-full h-48 object-cover">
-                        <div class="p-6">
-                            <div class="flex justify-between items-center mb-2">
-                                <h3 class="text-xl font-semibold"><?php echo htmlspecialchars($item['name']); ?></h3>
-                                <span class="text-amber-600 font-bold">₱<?php echo number_format($item['price'], 2); ?></span>
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden menu-card transform transition duration-300 hover:translate-y-[-5px] hover:shadow-xl" data-category="<?php echo $item['category_id'] ?: 'uncategorized'; ?>">
+                        <div class="relative">
+                            <img src="<?php echo htmlspecialchars($item['image_url'] ?: 'https://via.placeholder.com/400x300'); ?>" alt="<?php echo htmlspecialchars($item['name']); ?>" class="w-full h-56 object-cover">
+                            <div class="absolute top-0 left-0 w-full h-full bg-black bg-opacity-20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                                <button class="bg-white text-amber-600 hover:bg-amber-600 hover:text-white py-2 px-6 rounded-full font-semibold transform transition duration-300 hover:scale-105 quick-view-btn" data-item-id="<?php echo $item['item_id']; ?>">Quick View</button>
                             </div>
-                            <p class="text-gray-600 mb-3"><?php echo htmlspecialchars($item['description']); ?></p>
-                            <div class="space-y-2 mb-4">
-                                <span class="inline-block bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm"><?php echo htmlspecialchars($item['category_name'] ?? 'Uncategorized'); ?></span>
-                                <span class="inline-block px-3 py-1 rounded-full text-sm <?php echo $item['is_available'] ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
-                                    <?php echo $item['is_available'] ? 'Available' : 'Unavailable'; ?>
-                                </span>
+                            <?php if ($item['is_available']): ?>
+                                <div class="absolute top-4 right-4 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">Available</div>
+                            <?php else: ?>
+                                <div class="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">Sold Out</div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="p-6">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-xl font-bold text-gray-800"><?php echo htmlspecialchars($item['name']); ?></h3>
+                                <span class="text-amber-600 font-bold text-xl">₱<?php echo number_format($item['price'], 2); ?></span>
+                            </div>
+                            <p class="text-gray-600 mb-4 line-clamp-2"><?php echo htmlspecialchars($item['description']); ?></p>
+                            <div class="flex flex-wrap gap-2 mb-4">
+                                <span class="inline-block bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-sm font-medium"><?php echo htmlspecialchars($item['category_name'] ?? 'Uncategorized'); ?></span>
                                 <?php if ($item['calories'] !== null): ?>
-                                    <span class="inline-block bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm"><?php echo $item['calories']; ?> cal</span>
-                                <?php endif; ?>
-                                <?php if ($item['allergens']): ?>
-                                    <span class="inline-block bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm">Allergens: <?php echo htmlspecialchars($item['allergens']); ?></span>
+                                    <span class="inline-block bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium"><?php echo $item['calories']; ?> cal</span>
                                 <?php endif; ?>
                                 <?php if ($item['prep_time'] !== null): ?>
-                                    <span class="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">Prep: <?php echo $item['prep_time']; ?> min</span>
+                                    <span class="inline-block bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">Prep: <?php echo $item['prep_time']; ?> min</span>
                                 <?php endif; ?>
                             </div>
+                            <?php if ($item['allergens']): ?>
+                                <div class="mb-4">
+                                    <span class="inline-block bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-medium">Allergens: <?php echo htmlspecialchars($item['allergens']); ?></span>
+                                </div>
+                            <?php endif; ?>
                             <?php if (is_logged_in()): ?>
                                 <form method="POST" action="index.php">
                                     <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
                                     <input type="hidden" name="action" value="add_to_cart">
                                     <input type="hidden" name="item_id" value="<?php echo $item['item_id']; ?>">
-                                    <button type="submit" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-full transition duration-300 flex items-center justify-center" <?php echo !$item['is_available'] ? 'disabled' : ''; ?>>
-                                        <i class="fas fa-cart-plus mr-2"></i> Add to Cart
-                                    </button>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-1/3 border border-gray-300 rounded-lg flex items-center">
+                                            <button type="button" class="px-3 py-1 text-gray-600 hover:text-amber-600 qty-btn" data-action="decrease">−</button>
+                                            <input type="number" name="quantity" value="1" min="1" max="10" class="w-full text-center py-1 focus:outline-none">
+                                            <button type="button" class="px-3 py-1 text-gray-600 hover:text-amber-600 qty-btn" data-action="increase">+</button>
+                                        </div>
+                                        <button type="submit" class="w-2/3 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 flex items-center justify-center" <?php echo !$item['is_available'] ? 'disabled' : ''; ?>>
+                                            <i class="fas fa-cart-plus mr-2"></i> Add to Cart
+                                        </button>
+                                    </div>
                                 </form>
                             <?php else: ?>
-                                <a href="modules/auth/login.php" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-full transition duration-300 flex items-center justify-center">
+                                <a href="modules/auth/login.php" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 flex items-center justify-center">
                                     <i class="fas fa-sign-in-alt mr-2"></i> Login to Order
                                 </a>
                             <?php endif; ?>
@@ -305,12 +381,88 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
                 <?php } ?>
             </div>
 
+            <!-- No Results Message -->
+            <div id="no-results" class="hidden text-center py-12">
+                <i class="far fa-frown text-4xl text-gray-400 mb-4"></i>
+                <p class="text-xl text-gray-600">No items match your search. Try different keywords or filters.</p>
+            </div>
+
             <!-- View Full Menu Button -->
-            <div class="text-center mt-12">
-                <a href="./modules/pages/menu.php" class="inline-block border-2 border-amber-600 text-amber-600 hover:bg-amber-600 hover:text-white font-semibold py-2 px-6 rounded-full transition duration-300">View Full Menu</a>
+            <div class="text-center mt-16">
+                <a href="./modules/pages/menu.php" class="inline-block bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-8 rounded-full transition duration-300 shadow-md transform hover:scale-105">View Full Menu</a>
             </div>
         </div>
     </section>
+
+    <!-- Quick View Modal -->
+    <div id="quick-view-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 m-4">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-gray-800" id="modal-item-name">Item Name</h3>
+                <button class="text-gray-500 hover:text-gray-700 text-2xl" id="close-modal">&times;</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <img src="" alt="Item Image" id="modal-item-image" class="w-full h-auto rounded-lg object-cover">
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-amber-600 font-bold text-2xl" id="modal-item-price">₱0.00</span>
+                        <span id="modal-item-availability" class="inline-block px-3 py-1 rounded-full text-sm font-medium"></span>
+                    </div>
+                    <p class="text-gray-600 mb-6" id="modal-item-description">Description loading...</p>
+
+                    <div class="space-y-4 mb-6">
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-500 uppercase mb-2">Category</h4>
+                            <span class="inline-block bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-sm font-medium" id="modal-item-category">Category</span>
+                        </div>
+
+                        <div id="modal-item-nutrition-section">
+                            <h4 class="text-sm font-semibold text-gray-500 uppercase mb-2">Nutrition</h4>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="inline-block bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium" id="modal-item-calories"></span>
+                            </div>
+                        </div>
+
+                        <div id="modal-item-allergens-section" class="hidden">
+                            <h4 class="text-sm font-semibold text-gray-500 uppercase mb-2">Allergens</h4>
+                            <span class="inline-block bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-medium" id="modal-item-allergens"></span>
+                        </div>
+
+                        <div id="modal-item-preptime-section">
+                            <h4 class="text-sm font-semibold text-gray-500 uppercase mb-2">Preparation Time</h4>
+                            <span class="inline-block bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium" id="modal-item-preptime"></span>
+                        </div>
+                    </div>
+
+                    <?php if (is_logged_in()): ?>
+                        <form method="POST" action="index.php" id="modal-add-form">
+                            <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                            <input type="hidden" name="action" value="add_to_cart">
+                            <input type="hidden" name="item_id" id="modal-item-id" value="">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <label class="text-gray-700 font-medium">Quantity:</label>
+                                <div class="border border-gray-300 rounded-lg flex items-center">
+                                    <button type="button" class="px-3 py-1 text-gray-600 hover:text-amber-600 modal-qty-btn" data-action="decrease">−</button>
+                                    <input type="number" name="quantity" value="1" min="1" max="10" class="w-16 text-center py-1 focus:outline-none">
+                                    <button type="button" class="px-3 py-1 text-gray-600 hover:text-amber-600 modal-qty-btn" data-action="increase">+</button>
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 flex items-center justify-center" id="modal-add-btn">
+                                <i class="fas fa-cart-plus mr-2"></i> Add to Cart
+                            </button>
+                        </form>
+                    <?php else: ?>
+                        <a href="modules/auth/login.php" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 flex items-center justify-center">
+                            <i class="fas fa-sign-in-alt mr-2"></i> Login to Order
+                        </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Cart Modal (only for logged-in users) -->
     <?php if (is_logged_in()): ?>
@@ -575,8 +727,27 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
         <i class="fas fa-arrow-up"></i>
     </button>
 
+    <script src="/assets/js/index.js"></script>
     <!-- Scripts -->
     <script>
+        // Modal toggle function
+        function toggleModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.toggle('hidden');
+            } else {
+                console.warn(`Modal with ID ${modalId} not found.`);
+            }
+        }
+
+        // Open Cart Modal (only available for logged-in users)
+        window.openCartModal = function() {
+            <?php if (is_logged_in()): ?>
+                toggleModal('cartModal');
+            <?php else: ?>
+                window.location.href = 'modules/auth/login.php';
+            <?php endif; ?>
+        };
         // Mobile menu toggle
         (function() {
             const mobileMenuButton = document.querySelector('.mobile-menu-button');
@@ -586,25 +757,6 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
                     mobileMenu.classList.toggle('hidden');
                 });
             }
-
-            // Modal toggle function
-            function toggleModal(modalId) {
-                const modal = document.getElementById(modalId);
-                if (modal) {
-                    modal.classList.toggle('hidden');
-                } else {
-                    console.warn(`Modal with ID ${modalId} not found.`);
-                }
-            }
-
-            // Open Cart Modal (only available for logged-in users)
-            window.openCartModal = function() {
-                <?php if (is_logged_in()): ?>
-                    toggleModal('cartModal');
-                <?php else: ?>
-                    window.location.href = 'modules/auth/login.php';
-                <?php endif; ?>
-            };
 
             // Category filter functionality
             document.addEventListener('DOMContentLoaded', function() {

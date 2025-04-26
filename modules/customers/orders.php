@@ -6,38 +6,79 @@ require_auth();
 $user_id = $_SESSION['user_id'];
 $conn = db_connect();
 
+$user = get_user_by_id($user_id);
+
 // Get customer ID
 $customer_id = get_customer_id($user_id);
 
-// Get orders with additional details
-function get_customer_orders($customer_id)
-{
-    global $conn;
-    $stmt = $conn->prepare("
-        SELECT o.order_id, o.created_at, o.status, o.order_type, o.total as order_total,
-               o.delivery_address, o.delivery_fee, rt.table_number, p.status as payment_status,
-               COUNT(oi.order_item_id) as item_count,
-               SUM(oi.quantity * oi.unit_price) as items_subtotal
-        FROM orders o
-        LEFT JOIN order_items oi ON o.order_id = oi.order_id
-        LEFT JOIN restaurant_tables rt ON o.table_id = rt.table_id
-        LEFT JOIN payments p ON o.order_id = p.order_id
-        WHERE o.customer_id = ?
-        GROUP BY o.order_id
-        ORDER BY o.created_at DESC
-    ");
-    $stmt->bind_param("i", $customer_id);
+$customer = get_customer_data($user_id);
+
+// Handle order cancellation
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cancel_order') {
+    if (!validate_csrf_token($_POST['csrf_token'])) {
+        set_flash_message('Invalid CSRF token.', 'error');
+        header('Location: orders.php');
+        exit();
+    }
+
+    $order_id = filter_input(INPUT_POST, 'order_id', FILTER_VALIDATE_INT);
+    if (!$order_id) {
+        set_flash_message('Invalid order ID.', 'error');
+        header('Location: orders.php');
+        exit();
+    }
+
+    // Check if the order belongs to the customer and is cancellable
+    $stmt = $conn->prepare("SELECT status, table_id FROM orders WHERE order_id = ? AND customer_id = ?");
+    $stmt->bind_param("ii", $order_id, $customer_id);
     $stmt->execute();
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $order = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$order) {
+        set_flash_message('Order not found or you do not have permission to cancel it.', 'error');
+        header('Location: orders.php');
+        exit();
+    }
+
+    if ($order['status'] !== 'Pending' && $order['status'] !== 'Processing') {
+        set_flash_message('Only orders in Pending or Processing status can be cancelled.', 'error');
+        header('Location: orders.php');
+        exit();
+    }
+
+    // Update order status to Cancelled
+    $stmt = $conn->prepare("UPDATE orders SET status = 'Cancelled', updated_at = NOW() WHERE order_id = ?");
+    $stmt->bind_param("i", $order_id);
+    if (!$stmt->execute()) {
+        error_log('Failed to cancel order: ' . $stmt->error);
+        set_flash_message('Failed to cancel order. Please try again.', 'error');
+        $stmt->close();
+        header('Location: orders.php');
+        exit();
+    }
+    $stmt->close();
+
+    // If the order has a table_id (Dine-in), set the table status back to Available
+    if ($order['table_id'] !== null) {
+        $stmt = $conn->prepare("UPDATE restaurant_tables SET status = 'Available' WHERE table_id = ?");
+        $stmt->bind_param("i", $order['table_id']);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    set_flash_message('Order #' . $order_id . ' has been cancelled.', 'success');
+    header('Location: orders.php');
+    exit();
 }
 
 $orders = get_customer_orders($customer_id);
 
-// Get order items with correct table name (menu_items instead of items)
-
 
 $page_title = "Orders";
 $current_page = "orders";
+
+$is_home = false;
 ?>
 
 <!DOCTYPE html>
@@ -110,33 +151,37 @@ $current_page = "orders";
     <div class="container mx-auto px-4 py-8">
         <div class="flex flex-col md:flex-row gap-6">
             <!-- Sidebar -->
+            <!-- Sidebar -->
             <div class="md:w-1/4">
                 <div class="bg-white rounded-xl shadow-md p-6 sticky top-24">
                     <div class="text-center mb-6">
                         <div class="w-24 h-24 bg-gradient-to-br from-amber-100 to-amber-200 rounded-full mx-auto mb-4 flex items-center justify-center shadow-inner">
                             <i class="fas fa-user text-amber-600 text-3xl"></i>
                         </div>
-                        <h2 class="text-xl font-bold text-gray-800"><?= htmlspecialchars($_SESSION['first_name'] . ' ' . $_SESSION['last_name']) ?></h2>
-                        <p class="text-gray-500 text-sm"><?= htmlspecialchars($_SESSION['email']) ?></p>
+                        <h2 class="text-xl font-bold text-gray-800"><?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?></h2>
+                        <p class="text-gray-500 text-sm">Member since <?= date('M Y', strtotime($user['created_at'])) ?></p>
+                        <div class="mt-2 bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-0.5 rounded-full inline-block">
+                            <?= htmlspecialchars($customer['membership_level']) ?> member
+                        </div>
                     </div>
 
                     <nav class="space-y-1">
-                        <a href="./dashboard.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-gray-700">
+                        <a href="dashboard.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-gray-700">
                             <i class="fas fa-tachometer-alt mr-3 text-gray-500"></i> Dashboard
                         </a>
-                        <a href="./profile.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-gray-700">
-                            <i class="fas fa-user-edit mr-3 text-gray-500"></i> My Profile
+                        <a href="profile.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-gray-700">
+                            <i class="fas fa-user mr-3 text-gray-500"></i> My Profile
                         </a>
-                        <a href="./orders.php" class="flex items-center sidebar-link py-2 px-4 bg-amber-50 text-amber-700 rounded-lg font-medium">
+                        <a href="orders.php" class="flex items-center sidebar-link py-2 px-4 bg-amber-50 text-amber-700 rounded-lg font-medium">
                             <i class="fas fa-receipt mr-3 text-amber-600"></i> My Orders
                         </a>
-                        <a href="./reservation.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-gray-700">
+                        <a href="reservation.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-gray-700">
                             <i class="fas fa-calendar-alt mr-3 text-gray-500"></i> Reservations
                         </a>
-                        <a href="./favorites.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-gray-700">
+                        <a href="favorites.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-gray-700">
                             <i class="fas fa-heart mr-3 text-gray-500"></i> Favorites
                         </a>
-                        <a href="../auth/logout.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-red-600">
+                        <a href="modules/auth/logout.php" class="flex items-center sidebar-link py-2 px-4 hover:bg-gray-100 rounded-lg text-red-600">
                             <i class="fas fa-sign-out-alt mr-3"></i> Logout
                         </a>
                     </nav>
@@ -304,9 +349,14 @@ $current_page = "orders";
                                         <!-- Order Actions -->
                                         <div class="bg-gray-50 px-4 py-3 flex justify-between items-center border-t">
                                             <?php if ($order['status'] === 'Pending' || $order['status'] === 'Processing'): ?>
-                                                <a href="cancel-order.php?id=<?= $order['order_id'] ?>" class="text-sm text-red-600 hover:text-red-500">
-                                                    <i class="fas fa-times mr-1"></i> Cancel Order
-                                                </a>
+                                                <form method="POST" action="orders.php" onsubmit="return confirm('Are you sure you want to cancel Order #<?= $order['order_id'] ?>?');">
+                                                    <input type="hidden" name="csrf_token" value="<?= generate_csrf_token(); ?>">
+                                                    <input type="hidden" name="action" value="cancel_order">
+                                                    <input type="hidden" name="order_id" value="<?= $order['order_id'] ?>">
+                                                    <button type="submit" class="text-sm text-red-600 hover:text-red-500">
+                                                        <i class="fas fa-times mr-1"></i> Cancel Order
+                                                    </button>
+                                                </form>
                                             <?php else: ?>
                                                 <div></div>
                                             <?php endif; ?>

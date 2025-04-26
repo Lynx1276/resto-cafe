@@ -25,7 +25,11 @@ function get_customer_id_from_user_id($user_id)
     return $row ? $row['customer_id'] : null;
 }
 
-function create_order($customer_id, $order_type, $total, $delivery_address = null, $delivery_fee = 0.00, $estimated_delivery_time = null, $notes = null, $staff_id = null, $table_id = null)
+function create_order(
+    $customer_id, $order_type, 
+    $total, $delivery_address = null, 
+    $delivery_fee = 50.00, $estimated_delivery_time = null, 
+    $notes = null, $staff_id = null, $table_id = null)
 {
     $conn = db_connect();
     if ($conn === null) {
@@ -46,7 +50,15 @@ function create_order($customer_id, $order_type, $total, $delivery_address = nul
 
     error_log("create_order: customer_id=$customer_id, order_type=$order_type, total=$total, delivery_address=" . ($delivery_address ?? 'NULL') . ", delivery_fee=$delivery_fee, estimated_delivery_time=" . ($estimated_delivery_time ?? 'NULL') . ", notes=" . ($notes ?? 'NULL') . ", staff_id=" . ($staff_id ?? 'NULL') . ", table_id=" . ($table_id ?? 'NULL'));
 
-    $stmt = mysqli_prepare($conn, "INSERT INTO orders (customer_id, order_type, status, total, delivery_address, delivery_fee, estimated_delivery_time, notes, staff_id, table_id, created_at, updated_at) VALUES (?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+    $stmt = mysqli_prepare($conn, "INSERT INTO orders (
+        customer_id, order_type, 
+        status, total, 
+        delivery_address, delivery_fee, 
+        estimated_delivery_time, notes, 
+        staff_id, table_id, 
+        created_at, updated_at) VALUES (
+            ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())"
+        );
     if (!$stmt) {
         error_log('Failed to prepare statement in create_order: ' . mysqli_error($conn));
         return false;
@@ -321,6 +333,28 @@ function get_order_items($order_id)
         WHERE oi.order_id = ?
     ");
     $stmt->bind_param("i", $order_id);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+// Get orders with additional details
+function get_customer_orders($customer_id)
+{
+    global $conn;
+    $stmt = $conn->prepare("
+        SELECT o.order_id, o.created_at, o.status, o.order_type, o.total as order_total,
+               o.delivery_address, o.delivery_fee, rt.table_number, p.status as payment_status,
+               COUNT(oi.order_item_id) as item_count,
+               SUM(oi.quantity * oi.unit_price) as items_subtotal
+        FROM orders o
+        LEFT JOIN order_items oi ON o.order_id = oi.order_id
+        LEFT JOIN restaurant_tables rt ON o.table_id = rt.table_id
+        LEFT JOIN payments p ON o.order_id = p.order_id
+        WHERE o.customer_id = ?
+        GROUP BY o.order_id
+        ORDER BY o.created_at DESC
+    ");
+    $stmt->bind_param("i", $customer_id);
     $stmt->execute();
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
