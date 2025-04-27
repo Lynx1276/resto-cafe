@@ -21,11 +21,18 @@ if (empty($cart)) {
     exit();
 }
 
-// Calculate total
+// Calculate total and prepare order_items
 $total = 0;
-foreach ($cart as $item) {
+$order_items = [];
+foreach ($cart as $item_id => $item) {
     $subtotal = $item['price'] * $item['quantity'];
     $total += $subtotal;
+    // Prepare order_items in the format expected by create_order
+    $order_items[] = [
+        'item_id' => (int)$item_id,
+        'quantity' => (int)$item['quantity'],
+        'unit_price' => (float)$item['price']
+    ];
 }
 
 // Handle checkout form submission
@@ -69,6 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $customer_id,
         $order_type,
         $adjusted_total,
+        $order_items, // Pass the prepared order_items
         $delivery_address,
         $delivery_fee,
         null, // estimated_delivery_time

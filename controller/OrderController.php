@@ -25,12 +25,119 @@ function get_customer_id_from_user_id($user_id)
     return $row ? $row['customer_id'] : null;
 }
 
-function create_order(
-    $customer_id, $order_type, 
-    $total, $delivery_address = null, 
-    $delivery_fee = 50.00, $estimated_delivery_time = null, 
-    $notes = null, $staff_id = null, $table_id = null)
+// Function to fetch applicable promotions for an order
+function get_applicable_promotions($order_items, $order_total)
 {
+    if (empty($order_items) || !is_array($order_items)) {
+        return [];
+    }
+
+    $conn = db_connect();
+    if ($conn === null) {
+        error_log("Database connection is not initialized in get_applicable_promotions");
+        return [];
+    }
+
+    // Get all active promotions that are currently valid
+    $query = "SELECT p.*, GROUP_CONCAT(pi.item_id) as applicable_items
+              FROM promotions p
+              LEFT JOIN promotion_items pi ON p.promotion_id = pi.promotion_id
+              WHERE p.is_active = 1 AND p.start_date <= CURDATE() AND p.end_date >= CURDATE()
+              GROUP BY p.promotion_id";
+    $result = $conn->query($query);
+    if (!$result) {
+        error_log("Failed to fetch promotions: " . $conn->error);
+        return [];
+    }
+
+    $promotions = $result->fetch_all(MYSQLI_ASSOC);
+    $applicable_promotions = [];
+
+    // Extract item IDs from order_items
+    $item_ids = array_column($order_items, 'item_id');
+
+    foreach ($promotions as $promo) {
+        $promo_items = $promo['applicable_items'] ? explode(',', $promo['applicable_items']) : [];
+        $promo_items = array_map('intval', $promo_items);
+
+        // Check if the promotion applies (based on items and min_purchase)
+        $items_match = empty($promo_items) || array_intersect($item_ids, $promo_items);
+        $meets_min_purchase = $order_total >= $promo['min_purchase'];
+
+        if ($items_match && $meets_min_purchase) {
+            $applicable_promotions[] = $promo;
+        }
+    }
+
+    return $applicable_promotions;
+}
+
+// Function to calculate discount based on promotion
+function calculate_discount($promotion, $order_items, $subtotal)
+{
+    $discount = 0.0;
+    $promo_items = $promotion['applicable_items'] ? explode(',', $promotion['applicable_items']) : [];
+    $promo_items = array_map('intval', $promo_items);
+
+    // Calculate subtotal of applicable items
+    $applicable_subtotal = 0.0;
+    foreach ($order_items as $item) {
+        if (empty($promo_items) || in_array($item['item_id'], $promo_items)) {
+            $applicable_subtotal += $item['unit_price'] * $item['quantity'];
+        }
+    }
+
+    switch ($promotion['discount_type']) {
+        case 'Percentage':
+            $discount = ($applicable_subtotal * $promotion['discount_value']) / 100;
+            break;
+        case 'Fixed Amount':
+            $discount = min($promotion['discount_value'], $applicable_subtotal);
+            break;
+        case 'Buy One Get One':
+            // For BOGO, find pairs of applicable items
+            $quantities = 0;
+            foreach ($order_items as $item) {
+                if (empty($promo_items) || in_array($item['item_id'], $promo_items)) {
+                    $quantities += $item['quantity'];
+                }
+            }
+            $pairs = floor($quantities / 2);
+            $cheapest_item_price = PHP_FLOAT_MAX;
+            foreach ($order_items as $item) {
+                if (empty($promo_items) || in_array($item['item_id'], $promo_items)) {
+                    $cheapest_item_price = min($cheapest_item_price, $item['unit_price']);
+                }
+            }
+            $discount = $pairs * $cheapest_item_price;
+            break;
+        case 'Free Item':
+            // For simplicity, assume Free Item reduces the price of one item to 0
+            $cheapest_item_price = PHP_FLOAT_MAX;
+            foreach ($order_items as $item) {
+                if (empty($promo_items) || in_array($item['item_id'], $promo_items)) {
+                    $cheapest_item_price = min($cheapest_item_price, $item['unit_price']);
+                }
+            }
+            $discount = $cheapest_item_price;
+            break;
+    }
+
+    return $discount;
+}
+
+function create_order(
+    $customer_id,
+    $order_type,
+    $total,
+    $order_items,
+    $delivery_address = null,
+    $delivery_fee = 50.00,
+    $estimated_delivery_time = null,
+    $notes = null,
+    $staff_id = null,
+    $table_id = null
+) {
     $conn = db_connect();
     if ($conn === null) {
         error_log("Database connection is not initialized in create_order");
@@ -50,15 +157,31 @@ function create_order(
 
     error_log("create_order: customer_id=$customer_id, order_type=$order_type, total=$total, delivery_address=" . ($delivery_address ?? 'NULL') . ", delivery_fee=$delivery_fee, estimated_delivery_time=" . ($estimated_delivery_time ?? 'NULL') . ", notes=" . ($notes ?? 'NULL') . ", staff_id=" . ($staff_id ?? 'NULL') . ", table_id=" . ($table_id ?? 'NULL'));
 
-    $stmt = mysqli_prepare($conn, "INSERT INTO orders (
+    // Apply promotions
+    $applicable_promotions = get_applicable_promotions($order_items, $total);
+    $best_discount = 0.0;
+
+    foreach ($applicable_promotions as $promo) {
+        $discount = calculate_discount($promo, $order_items, $total);
+        if ($discount > $best_discount) {
+            $best_discount = $discount;
+        }
+    }
+
+    // Adjust total based on the best promotion
+    $total_after_discount = $total - $best_discount;
+
+    $stmt = mysqli_prepare(
+        $conn,
+        "INSERT INTO orders (
         customer_id, order_type, 
-        status, total, 
+        status, total, discount_applied,
         delivery_address, delivery_fee, 
         estimated_delivery_time, notes, 
         staff_id, table_id, 
         created_at, updated_at) VALUES (
-            ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())"
-        );
+            ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())"
+    );
     if (!$stmt) {
         error_log('Failed to prepare statement in create_order: ' . mysqli_error($conn));
         return false;
@@ -66,8 +189,8 @@ function create_order(
 
     error_log("create_order: Statement prepared successfully");
 
-    // Fixed type definition string to match the 9 variables
-    mysqli_stmt_bind_param($stmt, "isdsdssii", $customer_id, $order_type, $total, $delivery_address, $delivery_fee, $estimated_delivery_time, $notes, $staff_id, $table_id);
+    // Fixed type definition string to match 10 parameters
+    mysqli_stmt_bind_param($stmt, "isiddssiii", $customer_id, $order_type, $total_after_discount, $best_discount, $delivery_address, $delivery_fee, $estimated_delivery_time, $notes, $staff_id, $table_id);
 
     error_log("create_order: Parameters bound successfully");
 
@@ -82,7 +205,7 @@ function create_order(
     $order_id = mysqli_insert_id($conn);
     mysqli_stmt_close($stmt);
 
-    error_log("create_order: Order ID $order_id created");
+    error_log("create_order: Order ID $order_id created with total after discount: $total_after_discount, discount applied: $best_discount");
 
     return $order_id;
 }
@@ -343,7 +466,8 @@ function get_customer_orders($customer_id)
     global $conn;
     $stmt = $conn->prepare("
         SELECT o.order_id, o.created_at, o.status, o.order_type, o.total as order_total,
-               o.delivery_address, o.delivery_fee, rt.table_number, p.status as payment_status,
+               o.discount_applied, o.delivery_address, o.delivery_fee, rt.table_number,
+               p.status as payment_status,
                COUNT(oi.order_item_id) as item_count,
                SUM(oi.quantity * oi.unit_price) as items_subtotal
         FROM orders o

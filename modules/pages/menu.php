@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../controller/MenuController.php';
 require_once __DIR__ . '/../../includes/functions.php';
+require_once __DIR__ . '/../../controller/OrderController.php'; // Include OrderController for discount functions
 
 // Get customer ID and favorites if logged in
 $customer_id = null;
@@ -105,6 +106,33 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
 
 // Fetch all menu items (available and unavailable)
 $menuItems = get_menu_items();
+
+// Prepare cart items for discount calculation
+$cart = get_cart();
+$cart_items_for_discount = [];
+$cart_subtotal = 0.0;
+foreach ($cart as $item_id => $item) {
+    $subtotal = $item['price'] * $item['quantity'];
+    $cart_subtotal += $subtotal;
+    $cart_items_for_discount[] = [
+        'item_id' => (int)$item_id,
+        'quantity' => (int)$item['quantity'],
+        'unit_price' => (float)$item['price']
+    ];
+}
+
+// Calculate discounts
+$best_discount = 0.0;
+$applicable_promotions = get_applicable_promotions($cart_items_for_discount, $cart_subtotal);
+foreach ($applicable_promotions as $promo) {
+    $discount = calculate_discount($promo, $cart_items_for_discount, $cart_subtotal);
+    if ($discount > $best_discount) {
+        $best_discount = $discount;
+    }
+}
+
+// Calculate final total after discount
+$cart_total = $cart_subtotal - $best_discount;
 ?>
 
 <!DOCTYPE html>
@@ -571,9 +599,21 @@ $menuItems = get_menu_items();
                         <?php endforeach; ?>
                     </div>
                     <div class="mt-4 border-t border-amber-100 pt-4">
-                        <div class="flex justify-between items-center">
-                            <span class="text-lg font-semibold text-amber-600">Total:</span>
-                            <span class="text-lg font-bold text-amber-600">₱<?php echo number_format($total, 2); ?></span>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-lg font-semibold text-amber-600">Subtotal:</span>
+                                <span class="text-lg font-bold text-amber-600">₱<?php echo number_format($total, 2); ?></span>
+                            </div>
+                            <?php if ($best_discount > 0): ?>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-md font-semibold text-green-600">Discount:</span>
+                                    <span class="text-md font-bold text-green-600">-₱<?php echo number_format($best_discount, 2); ?></span>
+                                </div>
+                            <?php endif; ?>
+                            <div class="flex justify-between items-center">
+                                <span class="text-lg font-semibold text-amber-600">Total:</span>
+                                <span class="text-lg font-bold text-amber-600">₱<?php echo number_format($cart_total, 2); ?></span>
+                            </div>
                         </div>
                         <form method="POST" action="../customers/checkout.php" id="checkoutForm">
                             <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
@@ -871,7 +911,6 @@ $menuItems = get_menu_items();
                 });
             }
         });
-
     </script>
 </body>
 

@@ -248,6 +248,28 @@ function require_auth()
     }
 }
 
+function get_csrf_token()
+{
+    return generate_csrf_token();
+}
+
+
+function has_flash_message()
+{
+    return isset($_SESSION['flash_message']);
+}
+
+function get_flash_message()
+{
+    if (has_flash_message()) {
+        $message = $_SESSION['flash_message'];
+        unset($_SESSION['flash_message']);
+        return $message;
+    }
+    return null;
+}
+
+
 // Check if user has admin role
 function is_admin()
 {
@@ -1041,3 +1063,4 @@ function get_upcoming_reservations($user_id)
     $stmt->execute();
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
+

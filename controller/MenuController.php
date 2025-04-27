@@ -356,3 +356,58 @@ function clear_cart()
 {
     $_SESSION['cart'] = [];
 }
+
+// New function to get cart items with full details
+function get_cart_items()
+{
+    if (!isset($_SESSION['cart']) || empty($_SESSION['cart'])) {
+        return [];
+    }
+
+    $conn = db_connect();
+    if ($conn === null) {
+        error_log("Database connection failed in get_cart_items");
+        return [];
+    }
+
+    // Extract item IDs from the cart
+    $item_ids = array_keys($_SESSION['cart']);
+    if (empty($item_ids)) {
+        return [];
+    }
+
+    // Prepare placeholders for the IN clause
+    $placeholders = implode(',', array_fill(0, count($item_ids), '?'));
+    $query = "SELECT item_id, name, image_url, price FROM items WHERE item_id IN ($placeholders) AND is_available = 1";
+    $stmt = $conn->prepare($query);
+    if (!$stmt) {
+        error_log("Prepare failed in get_cart_items: " . $conn->error);
+        return [];
+    }
+
+    // Bind parameters dynamically
+    $types = str_repeat('i', count($item_ids));
+    $stmt->bind_param($types, ...$item_ids);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $items = [];
+    while ($row = $result->fetch_assoc()) {
+        $item_id = $row['item_id'];
+        $items[$item_id] = $row;
+        // Add cart-specific details
+        $items[$item_id]['quantity'] = $_SESSION['cart'][$item_id]['quantity'];
+        $items[$item_id]['price'] = $_SESSION['cart'][$item_id]['price'];
+    }
+    $stmt->close();
+
+    // Convert to indexed array and filter out items that weren't found or aren't available
+    $cart_items = [];
+    foreach ($_SESSION['cart'] as $item_id => $cart_data) {
+        if (isset($items[$item_id])) {
+            $cart_items[] = $items[$item_id];
+        }
+    }
+
+    return $cart_items;
+}

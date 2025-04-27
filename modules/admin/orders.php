@@ -556,7 +556,7 @@ while ($order = $orders_result->fetch_assoc()) {
             } else {
                 items.forEach(item => {
                     const li = document.createElement('li');
-                    li.textContent = `${item.item_name || 'Unknown Item'} (Qty: ${item.quantity}, $${Number(item.unit_price).toFixed(2)})`;
+                    li.textContent = `${item.name || 'Unknown Item'} (Qty: ${item.quantity}, $${Number(item.unit_price).toFixed(2)})`;
                     itemsList.appendChild(li);
                 });
             }
