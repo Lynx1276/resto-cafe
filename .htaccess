@@ -1,0 +1,4 @@
+<Directory "system_backup">
+    Order Deny,Allow
+    Deny from all
+</Directory>

@@ -138,6 +138,10 @@ function create_order(
     $staff_id = null,
     $table_id = null
 ) {
+    if (is_system_down()) {
+        error_log("Attempt to create order blocked due to system downtime");
+        return ['error' => 'System is currently down for maintenance. You cannot place orders at this time.'];
+    }
     $conn = db_connect();
     if ($conn === null) {
         error_log("Database connection is not initialized in create_order");
@@ -212,6 +216,10 @@ function create_order(
 
 function add_order_item($order_id, $item_id, $quantity, $unit_price)
 {
+    if (is_system_down()) {
+        error_log("Attempt to create order blocked due to system downtime");
+        return ['error' => 'System is currently down for maintenance. You cannot place orders at this time.'];
+    }
     $conn = db_connect();
     if ($conn === null) {
         error_log("Database connection is not initialized in add_order_item");
@@ -236,6 +244,10 @@ function add_order_item($order_id, $item_id, $quantity, $unit_price)
 
 function create_payment($order_id, $amount, $payment_method)
 {
+    if (is_system_down()) {
+        error_log("Attempt to create order blocked due to system downtime");
+        return ['error' => 'System is currently down for maintenance. You cannot place orders at this time.'];
+    }
     $conn = db_connect();
     if ($conn === null) {
         error_log("Database connection is not initialized in create_payment");
@@ -302,7 +314,7 @@ function get_recent_orders($user_id, $limit)
 // Helper function to update loyalty points
 function update_loyalty_points($customer_id, $points_to_add)
 {
-    global $conn;
+    $conn = db_connect();
     $stmt = mysqli_prepare($conn, "UPDATE customers SET loyalty_points = loyalty_points + ? WHERE customer_id = ?");
     if (!$stmt) {
         error_log('Failed to prepare statement in update_loyalty_points: ' . mysqli_error($conn));
@@ -321,7 +333,7 @@ function update_loyalty_points($customer_id, $points_to_add)
 // Helper function to update payment status
 function update_payment_status($order_id, $new_status)
 {
-    global $conn;
+    $conn = db_connect();
     $stmt = mysqli_prepare($conn, "UPDATE payments SET status = ?, payment_date = NOW() WHERE order_id = ?");
     if (!$stmt) {
         error_log('Failed to prepare statement in update_payment_status: ' . mysqli_error($conn));
@@ -339,7 +351,11 @@ function update_payment_status($order_id, $new_status)
 
 function process_order($order_id, $new_status, $staff_id)
 {
-    global $conn;
+    if (is_system_down()) {
+        error_log("Attempt to create order blocked due to system downtime");
+        return ['error' => 'System is currently down for maintenance. You cannot place orders at this time.'];
+    }
+    $conn = db_connect();
     if ($conn === null) {
         error_log("Database connection is not initialized in process_order");
         return ['success' => false, 'message' => 'Database connection not initialized'];
@@ -448,6 +464,10 @@ function process_order($order_id, $new_status, $staff_id)
 
 function get_order_items($order_id)
 {
+    if (is_system_down()) {
+        error_log("Attempt to create order blocked due to system downtime");
+        return ['error' => 'System is currently down for maintenance. You cannot place orders at this time.'];
+    }
     $conn = db_connect();
     $stmt = $conn->prepare("
         SELECT oi.*, mi.name as name, mi.image_url 
@@ -463,7 +483,7 @@ function get_order_items($order_id)
 // Get orders with additional details
 function get_customer_orders($customer_id)
 {
-    global $conn;
+    $conn = db_connect();
     $stmt = $conn->prepare("
         SELECT o.order_id, o.created_at, o.status, o.order_type, o.total as order_total,
                o.discount_applied, o.delivery_address, o.delivery_fee, rt.table_number,

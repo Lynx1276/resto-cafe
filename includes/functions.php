@@ -18,6 +18,206 @@ if (session_status() === PHP_SESSION_NONE) {
     ]);
 }
 
+// Check if the system is down
+function is_system_down()
+{
+    return file_exists('system_down.txt');
+}
+
+// Set the system to down state
+function set_system_down()
+{
+    if (!file_exists('system_down.txt')) {
+        file_put_contents('system_down.txt', 'System is down for maintenance as of ' . date('Y-m-d H:i:s'));
+        error_log("System set to down state");
+    }
+}
+
+// Set the system to up state
+function set_system_up()
+{
+    if (file_exists('system_down.txt')) {
+        unlink('system_down.txt');
+        error_log("System set to up state");
+    }
+}
+
+// Function to export table data to CSV
+function export_table_to_csv($table_name, $columns, $backup_dir = 'system_backup')
+{
+    try {
+        $conn = db_connect();
+
+        // Create backup directory if it doesn't exist
+        if (!is_dir($backup_dir)) {
+            mkdir($backup_dir, 0755, true);
+        }
+
+        // Generate CSV filename with timestamp
+        $timestamp = date('Ymd_His');
+        $filename = "$backup_dir/{$table_name}_backup_{$timestamp}.csv";
+
+        // Open file for writing
+        $file = fopen($filename, 'w');
+        if ($file === false) {
+            error_log("Failed to open file for writing: $filename");
+            return false;
+        }
+
+        // Write CSV header
+        fputcsv($file, $columns);
+
+        // Fetch and write data
+        $query = "SELECT " . implode(',', $columns) . " FROM $table_name";
+        $result = $conn->query($query);
+
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                fputcsv($file, $row);
+            }
+        } else {
+            error_log("Failed to query table $table_name: " . $conn->error);
+            fclose($file);
+            return false;
+        }
+
+        fclose($file);
+        return $filename;
+    } catch (Exception $e) {
+        error_log("Error exporting table $table_name to CSV: " . $e->getMessage());
+        return false;
+    }
+}
+
+// Function to notify all users about system downtime
+function notify_users_system_down()
+{
+    $conn = db_connect();
+    $mail_config = include __DIR__ . '/../config/email.php';
+
+    // Fetch all users
+    $users = fetch_all("SELECT email, first_name FROM users WHERE email_verified = 1");
+    if (empty($users)) {
+        error_log("No verified users found to notify about system downtime");
+        return false;
+    }
+
+    $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+
+    try {
+        // SMTP Configuration
+        $mail->isSMTP();
+        $mail->Host       = $mail_config['smtp']['host'];
+        $mail->SMTPAuth   = true;
+        $mail->Username   = $mail_config['smtp']['username'];
+        $mail->Password   = $mail_config['smtp']['password'];
+        $mail->SMTPSecure = $mail_config['smtp']['encryption'];
+        $mail->Port       = $mail_config['smtp']['port'];
+        $mail->Timeout    = 10;
+
+        $mail->setFrom($mail_config['smtp']['from'], $mail_config['smtp']['from_name']);
+
+        $success_count = 0;
+        foreach ($users as $user) {
+            $mail->clearAddresses();
+            $mail->addAddress($user['email'], $user['first_name']);
+
+            $mail->isHTML(true);
+            $mail->Subject = 'Casa Baraka System Downtime Notification';
+            $mail->Body = "
+                <h1 style='color: #D97706;'>System Downtime Alert</h1>
+                <p>Dear {$user['first_name']},</p>
+                <p>We wanted to inform you that Casa Baraka's system is currently down for maintenance. You can still browse the site, but transactions such as placing orders or making reservations are disabled.</p>
+                <p>We apologize for any inconvenience this may cause. Thank you for your patience and understanding.</p>
+                <p>Best regards,<br>The Casa Baraka Team</p>
+            ";
+            $mail->AltBody = "System Downtime Alert\n\nDear {$user['first_name']},\n\nCasa Baraka's system is currently down for maintenance. You can still browse the site, but transactions are disabled.\n\nBest regards,\nThe Casa Baraka Team";
+
+            if ($mail->send()) {
+                $success_count++;
+                error_log("System down notification sent to: {$user['email']}");
+            } else {
+                error_log("Failed to send system down notification to: {$user['email']} - " . $mail->ErrorInfo);
+            }
+        }
+
+        error_log("System down notifications sent to $success_count out of " . count($users) . " users");
+        return true;
+    } catch (Exception $e) {
+        error_log("Error sending system down notifications: " . $e->getMessage());
+        return false;
+    }
+}
+
+// Main function to handle system downtime
+function system_down_handler()
+{
+    // Set the system down flag
+    set_system_down();
+
+    $backup_dir = 'system_backup';
+    $backup_files = [];
+
+    try {
+        $conn = db_connect();
+
+        // Get all tables in the database
+        $tables_result = $conn->query("SHOW TABLES");
+        if (!$tables_result) {
+            error_log("Failed to fetch tables: " . $conn->error);
+            return [
+                'backup_files' => [],
+                'notification_sent' => false
+            ];
+        }
+
+        // Fetch table names
+        $tables = [];
+        while ($row = $tables_result->fetch_array()) {
+            $tables[] = $row[0];
+        }
+
+        // For each table, get its columns and export to CSV
+        foreach ($tables as $table) {
+            // Get column names for the table
+            $columns_result = $conn->query("SHOW COLUMNS FROM `$table`");
+            if (!$columns_result) {
+                error_log("Failed to fetch columns for table $table: " . $conn->error);
+                continue;
+            }
+
+            $columns = [];
+            while ($column = $columns_result->fetch_assoc()) {
+                $columns[] = $column['Field'];
+            }
+
+            // Export the table to CSV
+            $result = export_table_to_csv($table, $columns, $backup_dir);
+            if ($result) {
+                $backup_files[$table] = $result;
+                error_log("Successfully backed up $table to $result");
+            } else {
+                error_log("Failed to backup $table");
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Error in system_down_handler: " . $e->getMessage());
+    }
+
+    // Notify users
+    $notification_result = notify_users_system_down();
+
+    // Log the system down event
+    $backup_status = !empty($backup_files) ? 'Success' : 'Failed';
+    $notification_status = $notification_result ? 'Success' : 'Failed';
+    error_log("System down handler completed. Backup: $backup_status, Notification: $notification_status");
+
+    return [
+        'backup_files' => $backup_files,
+        'notification_sent' => $notification_result
+    ];
+}
+
 function send_verification_email($email, $name, $verification_token, $login_token)
 {
     error_log("Attempting to send verification email to: $email");

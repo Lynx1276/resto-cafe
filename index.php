@@ -536,7 +536,7 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
         <div class="container mx-auto px-4">
             <div class="flex flex-col md:flex-row items-center">
                 <div class="md:w-1/2 mb-8 md:mb-0 md:pr-8">
-                    <img src="https://via.placeholder.com/600x400" alt="About Casa Baraka" class="rounded-lg shadow-md w-full">
+                    <img src="/assets/Uploads/images/logo.png" alt="About Casa Baraka" class="rounded-lg shadow-md w-full">
                 </div>
                 <div class="md:w-1/2">
                     <h2 class="text-3xl font-bold mb-6">Our Story</h2>

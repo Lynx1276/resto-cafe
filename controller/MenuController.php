@@ -42,6 +42,10 @@ function handle_image_upload($file, $prefix = 'menu')
 
 function handle_add_category()
 {
+    if (is_system_down()) {
+        error_log("Attempt to create order blocked due to system downtime");
+        return ['error' => 'System is currently down for maintenance. You cannot place orders at this time.'];
+    }
     $conn = db_connect();
     $name = sanitize_input($_POST['name']);
     $description = sanitize_input($_POST['description'] ?? '');
@@ -124,6 +128,10 @@ function handle_delete_category()
 
 function handle_add_item()
 {
+    if (is_system_down()) {
+        error_log("Attempt to create order blocked due to system downtime");
+        return ['error' => 'System is currently down for maintenance. You cannot place orders at this time.'];
+    }
     $conn = db_connect();
     $name = sanitize_input($_POST['name']);
     $description = sanitize_input($_POST['description'] ?? '');
@@ -287,6 +295,10 @@ function get_menu_items($category_id = null, $available_only = false)
 
 function add_to_cart($item_id, $quantity = 1)
 {
+    if (is_system_down()) {
+        error_log("Attempt to create order blocked due to system downtime");
+        return ['error' => 'System is currently down for maintenance. You cannot place orders at this time.'];
+    }
     $conn = db_connect();
     $sql = "SELECT item_id, name, price, is_available FROM items WHERE item_id = ? AND is_available = 1";
     $stmt = $conn->prepare($sql);

@@ -80,6 +80,11 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
 </head>
 
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <?php if (is_system_down()): ?>
+        <div class="downtime-banner">
+            System is currently down for maintenance. You can browse the site, but transactions (orders, reservations, payments) are disabled.
+        </div>
+    <?php endif; ?>
     <!-- Navigation -->
     <nav class="bg-white shadow-lg fixed w-full z-10">
         <div class="max-w-6xl mx-auto px-4">
