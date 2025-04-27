@@ -3,7 +3,7 @@
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../controller/OrderController.php';
 require_once __DIR__ . '/../../controller/MenuController.php';
-require_once __DIR__ . '/../../controller/CustomerController.php'; // Assuming this connects to your database
+require_once __DIR__ . '/../../controller/CustomerController.php';
 
 require_auth();
 
@@ -12,30 +12,102 @@ $conn = db_connect();
 
 // Get user data
 $user = get_user_by_id($user_id);
-
 $customer = get_customer_data($user_id);
-
 $orders = get_recent_orders($user_id, 5);
 
-// Get upcoming reservations
-function get_upcoming_reservations($user_id)
-{
-    global $conn;
-    $customer_id = get_customer_id_from_user_id($user_id);
-    if (!$customer_id) {
-        return [];
+// Handle reservation actions (edit and cancel)
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validate_csrf_token($_POST['csrf_token'])) {
+        set_flash_message('Invalid CSRF token', 'error');
+        header('Location: dashboard.php');
+        exit();
     }
-    $stmt = $conn->prepare("
-        SELECT r.*, rt.table_number
-        FROM reservations r
-        JOIN restaurant_tables rt ON r.table_id = rt.table_id
-        WHERE r.customer_id = ? AND r.reservation_date >= CURDATE()
-        ORDER BY r.reservation_date, r.start_time
-        LIMIT 5
-    ");
-    $stmt->bind_param("i", $customer_id);
-    $stmt->execute();
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+    if (isset($_POST['action'])) {
+        $action = $_POST['action'];
+
+        // Edit Reservation
+        if ($action === 'edit_reservation') {
+            $reservation_id = filter_input(INPUT_POST, 'reservation_id', FILTER_VALIDATE_INT);
+            $reservation_date = filter_input(INPUT_POST, 'reservation_date', FILTER_SANITIZE_STRING);
+            $start_time = filter_input(INPUT_POST, 'start_time', FILTER_SANITIZE_STRING);
+            $end_time = filter_input(INPUT_POST, 'end_time', FILTER_SANITIZE_STRING);
+            $party_size = filter_input(INPUT_POST, 'party_size', FILTER_VALIDATE_INT);
+            $notes = filter_input(INPUT_POST, 'notes', FILTER_SANITIZE_STRING);
+
+            // Validate inputs
+            if ($reservation_id && $reservation_date && $start_time && $end_time && $party_size) {
+                // Ensure reservation date is in the future
+                $today = date('Y-m-d');
+                if ($reservation_date < $today) {
+                    set_flash_message('Reservation date must be in the future.', 'error');
+                    header('Location: dashboard.php');
+                    exit();
+                }
+
+                // Validate time slot against business hours
+                $day_of_week = strtolower(date('l', strtotime($reservation_date)));
+                $stmt = $conn->prepare("SELECT open_time, close_time, is_closed FROM business_hours WHERE day_of_week = ?");
+                $stmt->bind_param("s", $day_of_week);
+                $stmt->execute();
+                $business_hours = $stmt->get_result()->fetch_assoc();
+
+                if ($business_hours['is_closed']) {
+                    set_flash_message('The restaurant is closed on ' . ucfirst($day_of_week) . '.', 'error');
+                    header('Location: dashboard.php');
+                    exit();
+                }
+
+                $open_time = $business_hours['open_time'];
+                $close_time = $business_hours['close_time'];
+                if ($start_time < $open_time || $end_time > $close_time || $start_time >= $end_time) {
+                    set_flash_message("Reservation time must be between $open_time and $close_time, and start time must be before end time.", 'error');
+                    header('Location: dashboard.php');
+                    exit();
+                }
+
+                // Update reservation
+                $stmt = $conn->prepare("UPDATE reservations SET reservation_date = ?, start_time = ?, end_time = ?, party_size = ?, notes = ? WHERE reservation_id = ? AND customer_id = ?");
+                $customer_id = get_customer_id_from_user_id($user_id);
+                $stmt->bind_param("sssisis", $reservation_date, $start_time, $end_time, $party_size, $notes, $reservation_id, $customer_id);
+
+                if ($stmt->execute()) {
+                    log_event($user_id, 'reservation_update', "Customer updated reservation #$reservation_id");
+                    set_flash_message('Reservation updated successfully.', 'success');
+                } else {
+                    set_flash_message('Failed to update reservation: ' . $stmt->error, 'error');
+                }
+            } else {
+                set_flash_message('Invalid input data.', 'error');
+            }
+        }
+
+        // Cancel Reservation
+        if ($action === 'cancel_reservation') {
+            $reservation_id = filter_input(INPUT_POST, 'reservation_id', FILTER_VALIDATE_INT);
+            if ($reservation_id) {
+                $customer_id = get_customer_id_from_user_id($user_id);
+                $stmt = $conn->prepare("UPDATE reservations SET status = 'Cancelled' WHERE reservation_id = ? AND customer_id = ? AND reservation_date >= CURDATE()");
+                $stmt->bind_param("ii", $reservation_id, $customer_id);
+
+                if ($stmt->execute()) {
+                    if ($stmt->affected_rows > 0) {
+                        log_event($user_id, 'reservation_cancel', "Customer cancelled reservation #$reservation_id");
+                        set_flash_message('Reservation cancelled successfully.', 'success');
+                    } else {
+                        set_flash_message('Cannot cancel past reservations or reservation not found.', 'error');
+                    }
+                } else {
+                    set_flash_message('Failed to cancel reservation: ' . $stmt->error, 'error');
+                }
+            } else {
+                set_flash_message('Invalid reservation ID.', 'error');
+            }
+        }
+
+        header('Location: dashboard.php');
+        exit();
+    }
 }
 
 $reservations = get_upcoming_reservations($user_id);
@@ -55,12 +127,20 @@ $is_home = false;
     <title>My Dashboard - Casa Baraka</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Modal backdrop */
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+    </style>
 </head>
 
 <body class="bg-gray-100">
     <?php require_once __DIR__ . '/../../includes/header.php'; ?>
 
     <div class="container mx-auto px-4 py-8">
+        <?php display_flash_message(); ?>
+
         <div class="flex flex-col md:flex-row gap-6">
             <!-- Sidebar -->
             <div class="md:w-1/4">
@@ -262,24 +342,21 @@ $is_home = false;
                                             </p>
                                             <p class="text-sm text-gray-500">
                                                 Party of <?= $reservation['party_size'] ?> •
-                                                <span class="<?= $reservation['status'] === 'Confirmed' ? 'text-green-600' : 'text-yellow-600' ?>">
+                                                <span class="<?= $reservation['status'] === 'Confirmed' ? 'text-green-600' : ($reservation['status'] === 'Pending' ? 'text-yellow-600' : 'text-blue-600') ?>">
                                                     <?= htmlspecialchars($reservation['status']) ?>
                                                 </span>
                                             </p>
                                         </div>
                                         <div class="flex space-x-2">
-                                            <a href="reservation-details.php?id=<?= $reservation['reservation_id'] ?>"
-                                                class="text-amber-600 hover:text-amber-500">
+                                            <button onclick='openViewModal(<?= json_encode($reservation) ?>)' class="text-amber-600 hover:text-amber-500">
                                                 <i class="fas fa-eye"></i>
-                                            </a>
-                                            <a href="edit-reservation.php?id=<?= $reservation['reservation_id'] ?>"
-                                                class="text-blue-600 hover:text-blue-500">
+                                            </button>
+                                            <button onclick='openEditModal(<?= json_encode($reservation) ?>)' class="text-blue-600 hover:text-blue-500">
                                                 <i class="fas fa-edit"></i>
-                                            </a>
-                                            <a href="cancel-reservation.php?id=<?= $reservation['reservation_id'] ?>"
-                                                class="text-red-600 hover:text-red-500">
+                                            </button>
+                                            <button onclick='openCancelModal(<?= $reservation['reservation_id'] ?>)' class="text-red-600 hover:text-red-500">
                                                 <i class="fas fa-times"></i>
-                                            </a>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -288,6 +365,106 @@ $is_home = false;
                     <?php endif; ?>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- View Reservation Modal -->
+    <div id="viewReservationModal" class="fixed inset-0 hidden modal-backdrop z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
+            <button onclick="toggleModal('viewReservationModal')" class="absolute top-3 right-3 text-amber-600 hover:text-amber-700">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+            <h2 class="text-xl font-semibold text-amber-600 mb-4 flex items-center">
+                <i class="fas fa-calendar-alt mr-2"></i> Reservation Details
+            </h2>
+            <div class="space-y-3 text-gray-700">
+                <p><strong>Table:</strong> <span id="viewTable"></span></p>
+                <p><strong>Date:</strong> <span id="viewDate"></span></p>
+                <p><strong>Time:</strong> <span id="viewTime"></span></p>
+                <p><strong>Party Size:</strong> <span id="viewPartySize"></span></p>
+                <p><strong>Status:</strong> <span id="viewStatus"></span></p>
+                <p><strong>Notes:</strong> <span id="viewNotes"></span></p>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button onclick="toggleModal('viewReservationModal')" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-6 rounded-md transition duration-300">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Reservation Modal -->
+    <div id="editReservationModal" class="fixed inset-0 hidden modal-backdrop z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
+            <button onclick="toggleModal('editReservationModal')" class="absolute top-3 right-3 text-amber-600 hover:text-amber-700">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+            <h2 class="text-xl font-semibold text-amber-600 mb-4 flex items-center">
+                <i class="fas fa-edit mr-2"></i> Edit Reservation
+            </h2>
+            <form id="editReservationForm" method="POST">
+                <input type="hidden" name="csrf_token" value="<?= generate_csrf_token() ?>">
+                <input type="hidden" name="action" value="edit_reservation">
+                <input type="hidden" name="reservation_id" id="editReservationId">
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label for="edit_reservation_date" class="block text-sm font-medium text-gray-700">Reservation Date</label>
+                        <input type="date" id="edit_reservation_date" name="reservation_date" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="edit_start_time" class="block text-sm font-medium text-gray-700">Start Time</label>
+                            <input type="time" id="edit_start_time" name="start_time" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label for="edit_end_time" class="block text-sm font-medium text-gray-700">End Time</label>
+                            <input type="time" id="edit_end_time" name="end_time" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="edit_party_size" class="block text-sm font-medium text-gray-700">Party Size</label>
+                        <input type="number" id="edit_party_size" name="party_size" min="1" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label for="edit_notes" class="block text-sm font-medium text-gray-700">Notes</label>
+                        <textarea id="edit_notes" name="notes" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-amber-500 focus:border-amber-500"></textarea>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" onclick="toggleModal('editReservationModal')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-6 rounded-md transition duration-300">
+                        Cancel
+                    </button>
+                    <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-6 rounded-md transition duration-300">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cancel Reservation Modal -->
+    <div id="cancelReservationModal" class="fixed inset-0 hidden modal-backdrop z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-lg max-w-sm w-full p-6 relative">
+            <button onclick="toggleModal('cancelReservationModal')" class="absolute top-3 right-3 text-amber-600 hover:text-amber-700">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+            <h2 class="text-xl font-semibold text-amber-600 mb-4 flex items-center">
+                <i class="fas fa-exclamation-triangle mr-2"></i> Cancel Reservation
+            </h2>
+            <p class="text-gray-700 mb-6">Are you sure you want to cancel this reservation? This action cannot be undone.</p>
+            <form id="cancelReservationForm" method="POST">
+                <input type="hidden" name="csrf_token" value="<?= generate_csrf_token() ?>">
+                <input type="hidden" name="action" value="cancel_reservation">
+                <input type="hidden" name="reservation_id" id="cancelReservationId">
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="toggleModal('cancelReservationModal')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-6 rounded-md transition duration-300">
+                        No, Keep It
+                    </button>
+                    <button type="submit" class="bg-red-600 hover:bg-red-500 text-white font-semibold py-2 px-6 rounded-md transition duration-300">
+                        Yes, Cancel
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -304,14 +481,14 @@ $is_home = false;
             }
 
             // Modal toggle function
-            function toggleModal(modalId) {
+            window.toggleModal = function(modalId) {
                 const modal = document.getElementById(modalId);
                 if (modal) {
                     modal.classList.toggle('hidden');
                 } else {
                     console.warn(`Modal with ID ${modalId} not found.`);
                 }
-            }
+            };
 
             // Open Cart Modal (only available for logged-in users)
             window.openCartModal = function() {
@@ -320,6 +497,38 @@ $is_home = false;
                 <?php else: ?>
                     window.location.href = 'modules/auth/login.php';
                 <?php endif; ?>
+            };
+
+            // Open View Reservation Modal
+            window.openViewModal = function(reservation) {
+                document.getElementById('viewTable').textContent = reservation.table_number;
+                document.getElementById('viewDate').textContent = new Date(reservation.reservation_date).toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                });
+                document.getElementById('viewTime').textContent = `${new Date('1970-01-01T' + reservation.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })} - ${new Date('1970-01-01T' + reservation.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}`;
+                document.getElementById('viewPartySize').textContent = reservation.party_size;
+                document.getElementById('viewStatus').textContent = reservation.status;
+                document.getElementById('viewNotes').textContent = reservation.notes || 'None';
+                toggleModal('viewReservationModal');
+            };
+
+            // Open Edit Reservation Modal
+            window.openEditModal = function(reservation) {
+                document.getElementById('editReservationId').value = reservation.reservation_id;
+                document.getElementById('edit_reservation_date').value = reservation.reservation_date;
+                document.getElementById('edit_start_time').value = reservation.start_time;
+                document.getElementById('edit_end_time').value = reservation.end_time;
+                document.getElementById('edit_party_size').value = reservation.party_size;
+                document.getElementById('edit_notes').value = reservation.notes || '';
+                toggleModal('editReservationModal');
+            };
+
+            // Open Cancel Reservation Modal
+            window.openCancelModal = function(reservationId) {
+                document.getElementById('cancelReservationId').value = reservationId;
+                toggleModal('cancelReservationModal');
             };
 
             // Category filter functionality (not used in dashboard, but keeping for consistency)
@@ -398,12 +607,15 @@ $is_home = false;
                     });
                 });
 
-                // Close modal when clicking outside (only if modal exists)
+                // Close modals when clicking outside
                 document.addEventListener('click', (e) => {
-                    const modal = document.getElementById('cartModal');
-                    if (modal && e.target === modal) {
-                        modal.classList.add('hidden');
-                    }
+                    const modals = ['cartModal', 'viewReservationModal', 'editReservationModal', 'cancelReservationModal'];
+                    modals.forEach(modalId => {
+                        const modal = document.getElementById(modalId);
+                        if (modal && e.target === modal) {
+                            modal.classList.add('hidden');
+                        }
+                    });
                 });
             });
         })();

@@ -1020,3 +1020,24 @@ function get_available_tables()
     mysqli_stmt_close($stmt);
     return $tables;
 }
+
+// Get upcoming reservations
+function get_upcoming_reservations($user_id)
+{
+    global $conn;
+    $customer_id = get_customer_id_from_user_id($user_id);
+    if (!$customer_id) {
+        return [];
+    }
+    $stmt = $conn->prepare("
+        SELECT r.*, rt.table_number
+        FROM reservations r
+        JOIN restaurant_tables rt ON r.table_id = rt.table_id
+        WHERE r.customer_id = ? AND r.reservation_date >= CURDATE()
+        ORDER BY r.reservation_date, r.start_time
+        LIMIT 5
+    ");
+    $stmt->bind_param("i", $customer_id);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}

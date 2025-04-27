@@ -60,7 +60,7 @@ include __DIR__ . '/includes/header.php';
             theme: {
                 extend: {
                     colors: {
-                        amber: {
+                        primary: {
                             50: '#fefce8',
                             100: '#fef9c3',
                             200: '#fef08a',
@@ -72,12 +72,47 @@ include __DIR__ . '/includes/header.php';
                             800: '#854d0e',
                             900: '#713f12',
                         },
-                        white: '#ffffff',
-                    }
+                        secondary: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        }
+                    },
                 }
             }
         }
     </script>
+
+    <style>
+        .badge {
+            transition: all 0.2s ease;
+        }
+
+        .badge:hover {
+            transform: scale(1.05);
+        }
+
+        .sidebar-item {
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-item:hover {
+            background-color: rgba(234, 179, 8, 0.1);
+            transform: translateX(3px);
+        }
+
+        .sidebar-item.active {
+            background-color: rgba(234, 179, 8, 0.2);
+            border-left: 3px solid #eab308;
+        }
+    </style>
 </head>
 
 <body class="bg-white font-sans min-h-screen">

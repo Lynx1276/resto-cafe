@@ -71,20 +71,6 @@ $nav_items = [
         'manager' => true,
         'staff' => true
     ],
-    'reports' => [
-        'label' => 'Reports',
-        'icon' => 'fas fa-chart-bar',
-        'url' => '/modules/staff/reports.php',
-        'manager' => true,
-        'staff' => false
-    ],
-    'settings' => [
-        'label' => 'Settings',
-        'icon' => 'fas fa-cog',
-        'url' => '/modules/staff/settings.php',
-        'manager' => true,
-        'staff' => false
-    ],
 ];
 
 // Get user info for display
@@ -206,87 +192,101 @@ $conn->close();
     }
 </style>
 
-<aside class="w-64 bg-amber-50 shadow-md flex-shrink-0 h-screen fixed left-0 top-0 overflow-y-auto transition-all duration-300 ease-in-out" id="sidebar">
-    <div class="p-4">
-        <!-- Logo and Brand -->
-        <div class="flex items-center justify-between mb-8">
-            <div class="flex items-center">
-                <i class="fas fa-utensils text-xl"></i>
-                <span class="text-2xl font-bold text-amber-800">Casa Baraka</span>
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out bg-white shadow-lg -translate-x-full lg:translate-x-0">
+    <!-- Sidebar Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center">
+            <div class="h-8 w-8 rounded-md bg-primary-600 flex items-center justify-center mr-3">
+                <i class="fas fa-utensils text-white text-sm"></i>
             </div>
-            <button id="mobile-toggle" class="md:hidden text-amber-800 hover:text-amber-600">
-                <i class="fas fa-bars"></i>
-            </button>
+            <span class="text-xl font-bold text-gray-900">Casa Baraka</span>
         </div>
+        <button id="sidebar-close" class="text-gray-500 hover:text-gray-700 lg:hidden">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
 
-        <!-- User Profile Section -->
-        <div class="mb-6 pb-4 border-b border-amber-200">
-            <div class="flex items-center">
-                <div class="w-10 h-10 rounded-full bg-amber-300 flex items-center justify-center text-amber-800 font-bold">
-                    <?= substr($user_name, 0, 1) ?>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium text-amber-800"><?= htmlspecialchars($user_name) ?></p>
-                    <p class="text-xs text-amber-600">
-                        <?= $is_manager ? 'Manager' : ($is_staff ? 'Staff' : 'User') ?>
-                    </p>
-                </div>
+    <!-- User Profile -->
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center">
+            <div class="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold">
+                <?= substr($user_name, 0, 1) ?>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm font-medium text-gray-900"><?= htmlspecialchars($user_name) ?></p>
+                <p class="text-xs text-gray-500">
+                    <?= $is_manager ? 'Manager' : ($is_staff ? 'Staff' : 'User') ?>
+                </p>
             </div>
         </div>
+    </div>
 
-        <!-- Navigation -->
-        <nav class="space-y-1">
+    <!-- Navigation -->
+    <nav class="px-2 py-4 overflow-y-auto h-[calc(100vh-180px)] scrollbar">
+        <div class="space-y-1">
             <?php foreach ($nav_items as $page => $item): ?>
                 <?php if (($is_manager && $item['manager']) || ($is_staff && $item['staff'])): ?>
-                    <a href="<?= $item['url'] ?>"
-                        class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 
-                              <?= strpos($current_page, $page) !== false ?
-                                    'bg-amber-600 text-white shadow-md' :
-                                    'text-amber-700 hover:bg-amber-100 hover:text-amber-800' ?>">
-                        <i class="<?= $item['icon'] ?> w-5 text-center mr-3 
-                              <?= strpos($current_page, $page) !== false ? 'text-white' : 'text-amber-500' ?>"></i>
+                    <a href="<?= $item['url'] ?>" class="sidebar-item flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 <?= strpos($current_page, $page) !== false ? 'active bg-primary-50 text-primary-700' : 'text-gray-600 hover:text-gray-900' ?>">
+                        <i class="<?= $item['icon'] ?> w-5 text-center mr-3 <?= strpos($current_page, $page) !== false ? 'text-primary-600' : 'text-gray-400' ?>"></i>
                         <?= $item['label'] ?>
                         <?php if ($page === 'orders' && isset($_SESSION['pending_orders']) && $_SESSION['pending_orders'] > 0): ?>
-                            <span class="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                            <span class="ml-auto inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                 <?= $_SESSION['pending_orders'] ?>
                             </span>
                         <?php endif; ?>
                     </a>
                 <?php endif; ?>
             <?php endforeach; ?>
-        </nav>
-    </div>
+        </div>
+    </nav>
 
-    <!-- Logout Section -->
-    <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-amber-200">
-        <a href="/modules/auth/logout.php" class="flex items-center px-4 py-2 text-sm font-medium rounded-lg text-red-600 hover:bg-red-50 transition-colors">
-            <i class="fas fa-sign-out-alt mr-3"></i>
+    <!-- Sidebar Footer -->
+    <div class="absolute bottom-0 left-0 right-0 px-6 py-4 border-t border-gray-200">
+        <a href="/modules/auth/logout.php" class="flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100">
+            <i class="fas fa-sign-out-alt mr-3 text-gray-400"></i>
             Logout
         </a>
     </div>
 </aside>
 
-<!-- Add Mobile Toggle JavaScript -->
+<!-- Mobile overlay -->
+<div id="sidebar-overlay" class="fixed inset-0 z-40 bg-black bg-opacity-50 hidden lg:hidden"></div>
+
 <script>
+    // Toggle sidebar on mobile
     document.addEventListener('DOMContentLoaded', function() {
         const sidebar = document.getElementById('sidebar');
-        const mobileToggle = document.getElementById('mobile-toggle');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const sidebarClose = document.getElementById('sidebar-close');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
 
-        if (mobileToggle) {
-            mobileToggle.addEventListener('click', function() {
-                sidebar.classList.toggle('-translate-x-full');
-                sidebar.classList.toggle('translate-x-0');
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', function() {
+                sidebar.classList.remove('-translate-x-full');
+                sidebarOverlay.classList.remove('hidden');
             });
         }
 
+        if (sidebarClose) {
+            sidebarClose.addEventListener('click', function() {
+                sidebar.classList.add('-translate-x-full');
+                sidebarOverlay.classList.add('hidden');
+            });
+        }
+
+        sidebarOverlay.addEventListener('click', function() {
+            sidebar.classList.add('-translate-x-full');
+            sidebarOverlay.classList.add('hidden');
+        });
+
         // Close sidebar when clicking outside on mobile
         document.addEventListener('click', function(event) {
-            const isMobile = window.innerWidth < 768;
-            const isClickInside = sidebar.contains(event.target) || mobileToggle.contains(event.target);
+            const isClickInside = sidebar.contains(event.target) ||
+                (sidebarToggle && sidebarToggle.contains(event.target));
 
-            if (isMobile && !isClickInside && !sidebar.classList.contains('-translate-x-full')) {
+            if (!isClickInside && window.innerWidth < 1024 && !sidebar.classList.contains('-translate-x-full')) {
                 sidebar.classList.add('-translate-x-full');
-                sidebar.classList.remove('translate-x-0');
+                sidebarOverlay.classList.add('hidden');
             }
         });
     });

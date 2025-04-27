@@ -165,12 +165,12 @@ include __DIR__ . '/includes/header.php';
 ?>
 
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en" class="h-full bg-gray-50">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($page_title) ?> | Resto Cafe</title>
+    <title><?= htmlspecialchars($page_title) ?> | Casa Baraka</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -178,7 +178,7 @@ include __DIR__ . '/includes/header.php';
             theme: {
                 extend: {
                     colors: {
-                        amber: {
+                        primary: {
                             50: '#fefce8',
                             100: '#fef9c3',
                             200: '#fef08a',
@@ -190,20 +190,43 @@ include __DIR__ . '/includes/header.php';
                             800: '#854d0e',
                             900: '#713f12',
                         },
-                        white: '#ffffff',
+                        secondary: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
                     },
                     animation: {
-                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'fade-in': 'fadeIn 0.3s ease-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
                     },
                     keyframes: {
                         fadeIn: {
                             '0%': {
-                                opacity: '0',
-                                transform: 'translateY(10px)'
+                                opacity: '0'
                             },
                             '100%': {
-                                opacity: '1',
-                                transform: 'translateY(0)'
+                                opacity: '1'
+                            },
+                        },
+                        slideUp: {
+                            '0%': {
+                                transform: 'translateY(10px)',
+                                opacity: '0'
+                            },
+                            '100%': {
+                                transform: 'translateY(0)',
+                                opacity: '1'
                             },
                         },
                     },
@@ -212,324 +235,389 @@ include __DIR__ . '/includes/header.php';
         }
     </script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
         .card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
 
         .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
 
-        .modal-backdrop {
-            background-color: rgba(0, 0, 0, 0.5);
+        .badge {
+            transition: all 0.2s ease;
+        }
+
+        .badge:hover {
+            transform: scale(1.05);
+        }
+
+        .sidebar-item {
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-item:hover {
+            background-color: rgba(234, 179, 8, 0.1);
+            transform: translateX(3px);
+        }
+
+        .sidebar-item.active {
+            background-color: rgba(234, 179, 8, 0.2);
+            border-left: 3px solid #eab308;
+        }
+
+        .notification-dot {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .scrollbar::-webkit-scrollbar-track {
+            background: rgba(234, 179, 8, 0.1);
+        }
+
+        .scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(234, 179, 8, 0.4);
+            border-radius: 3px;
         }
     </style>
 </head>
 
-<body class="bg-amber-50 font-sans h-screen">
-    <div class="flex h-screen">
+<body class="h-full">
+    <div class="flex h-full">
         <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
-        <div class="flex-1 flex flex-col overflow-x-hidden">
+        <div class="flex-1 flex flex-col overflow-hidden">
             <!-- Top Navigation -->
-            <header class="bg-white shadow-sm z-10 border-b border-amber-100">
-                <div class="flex items-center justify-between p-4 lg:mx-auto lg:max-w-7xl">
-                    <h1 class="text-2xl font-bold text-amber-600">Dashboard</h1>
+            <header class="bg-white border-b border-gray-200">
+                <div class="flex items-center justify-between px-6 py-4">
                     <div class="flex items-center space-x-4">
+                        <button id="sidebar-toggle" class="text-gray-500 focus:outline-none lg:hidden">
+                            <i class="fas fa-bars text-lg"></i>
+                        </button>
+                        <h1 class="text-xl font-semibold text-gray-900">Dashboard</h1>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <button class="p-2 text-gray-500 hover:text-primary-600 relative">
+                            <i class="fas fa-bell text-lg"></i>
+                            <span class="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 notification-dot"></span>
+                        </button>
+
                         <div class="relative">
-                            <button class="p-2 rounded-full hover:bg-amber-100 focus:outline-none">
-                                <i class="fas fa-bell text-amber-600"></i>
-                            </button>
-                        </div>
-                        <div class="relative">
-                            <button class="flex items-center space-x-2 focus:outline-none" id="userMenuButton">
-                                <div class="h-8 w-8 rounded-full bg-amber-600 flex items-center justify-center text-white font-medium">
+                            <button id="user-menu-button" class="flex items-center space-x-2 focus:outline-none">
+                                <div class="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center text-white font-medium">
                                     <?= strtoupper(substr($_SESSION['first_name'], 0, 1) . substr($_SESSION['last_name'], 0, 1)) ?>
                                 </div>
-                                <span class="hidden md:inline text-amber-600 font-medium"><?= htmlspecialchars($_SESSION['first_name']) ?></span>
-                                <i class="fas fa-chevron-down hidden md:inline text-amber-600"></i>
+                                <span class="hidden md:inline text-sm font-medium text-gray-700"><?= htmlspecialchars($_SESSION['first_name']) ?></span>
+                                <i class="fas fa-chevron-down hidden md:inline text-gray-400 text-xs"></i>
                             </button>
-                            <div class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-20 border border-amber-100" id="userMenu">
-                                <a href="profile.php" class="block px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 hover:text-amber-700 transition-colors">Your Profile</a>
-                                <a href="settings.php" class="block px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 hover:text-amber-700 transition-colors">Settings</a>
-                                <a href="logout.php" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">Sign out</a>
+
+                            <div id="user-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-200">
+                                <a href="profile.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Your Profile</a>
+                                <a href="settings.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Settings</a>
+                                <a href="logout.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-t border-gray-200">Sign out</a>
                             </div>
                         </div>
                     </div>
                 </div>
             </header>
 
-            <main class="flex-1 pb-8">
-                <div class="bg-white shadow">
-                    <div class="px-4 sm:px-6 lg:mx-auto lg:max-w-7xl lg:px-8">
-                        <div class="py-6 md:flex md:items-center md:justify-between lg:border-t lg:border-amber-100">
-                            <div class="min-w-0 flex-1">
-                                <h1 class="text-2xl font-bold leading-7 text-amber-600 sm:truncate sm:text-3xl sm:tracking-tight">
-                                    Welcome, <?= htmlspecialchars($_SESSION['first_name']) ?>!
-                                </h1>
-                                <p class="mt-1 text-sm text-gray-500">
-                                    Role: <?= $is_manager ? 'Manager' : 'Staff' ?>
+            <!-- Main Content -->
+            <main class="flex-1 overflow-y-auto p-6 bg-gray-50">
+                <div class="max-w-7xl mx-auto">
+                    <!-- Welcome Banner -->
+                    <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                            <div>
+                                <h2 class="text-2xl font-bold text-gray-900">Welcome back, <?= htmlspecialchars($_SESSION['first_name']) ?>!</h2>
+                                <p class="text-gray-600 mt-1">
+                                    <?= date('l, F j, Y') ?> •
+                                    <span class="font-medium text-primary-600"><?= $is_manager ? 'Manager' : 'Staff' ?> Dashboard</span>
                                 </p>
                             </div>
-                            <div class="mt-4 flex md:mt-0 md:ml-4">
-                                <button onclick="openQuickActions()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 focus:outline-none">
+                            <div class="mt-4 md:mt-0">
+                                <button onclick="openQuickActions()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                                     <i class="fas fa-bolt mr-2"></i> Quick Actions
                                 </button>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="mt-8">
-                    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                        <?php display_flash_message(); ?>
+                    <?php display_flash_message(); ?>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <?php if ($is_manager): ?>
-                                <!-- Manager: Sales Overview -->
-                                <div class="bg-white rounded-lg shadow p-6 card animate-fade-in">
-                                    <h2 class="text-lg font-semibold text-amber-600 mb-4 flex items-center">
-                                        <i class="fas fa-chart-line mr-2"></i> Sales Overview
-                                    </h2>
-                                    <div class="space-y-4">
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-sm font-medium text-gray-600">Total Revenue</span>
-                                            <span class="text-lg font-bold text-amber-600">₱<?= number_format($sales_data['total_revenue'], 2) ?></span>
+                    <!-- Dashboard Cards Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <?php if ($is_manager): ?>
+                            <!-- Manager: Revenue Card -->
+                            <div class="bg-white rounded-xl shadow-sm p-6 card animate-fade-in">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Total Revenue</p>
+                                        <p class="mt-1 text-3xl font-semibold text-gray-900">₱<?= number_format($sales_data['total_revenue'], 2) ?></p>
+                                    </div>
+                                    <div class="h-12 w-12 rounded-full bg-primary-50 flex items-center justify-center">
+                                        <i class="fas fa-dollar-sign text-primary-600 text-xl"></i>
+                                    </div>
+                                </div>
+                                <div class="mt-6">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <p class="text-gray-500">Orders Today</p>
+                                        <p class="font-medium text-primary-600"><?= array_sum($sales_data['orders_by_status']) ?></p>
+                                    </div>
+                                    <div class="mt-4">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <span class="text-xs font-medium text-gray-500">Completed</span>
+                                            <span class="text-xs font-medium text-gray-500"><?= $sales_data['orders_by_status']['Completed'] ?? 0 ?></span>
                                         </div>
-                                        <div class="border-t border-amber-100 pt-4">
-                                            <h3 class="text-sm font-medium text-gray-600 mb-2">Orders by Status</h3>
-                                            <div class="space-y-2">
-                                                <?php foreach ($sales_data['orders_by_status'] as $status => $count): ?>
-                                                    <div class="flex justify-between items-center">
-                                                        <span class="text-sm text-gray-500"><?= htmlspecialchars($status) ?></span>
-                                                        <span class="text-sm font-semibold text-amber-600"><?= $count ?></span>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-primary-600 h-2 rounded-full" style="width: <?= ($sales_data['orders_by_status']['Completed'] ?? 0) / max(1, array_sum($sales_data['orders_by_status'])) * 100 ?>%"></div>
                                         </div>
                                     </div>
                                 </div>
+                            </div>
 
-                                <!-- Manager: Low Stock Alerts -->
-                                <div class="bg-white rounded-lg shadow p-6 card animate-fade-in">
-                                    <h2 class="text-lg font-semibold text-amber-600 mb-4 flex items-center">
-                                        <i class="fas fa-exclamation-triangle mr-2"></i> Low Stock Alerts
-                                    </h2>
+                            <!-- Manager: Low Stock Card -->
+                            <div class="bg-white rounded-xl shadow-sm p-6 card animate-fade-in">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Low Stock Items</p>
+                                        <p class="mt-1 text-3xl font-semibold text-gray-900"><?= count($low_stock) ?></p>
+                                    </div>
+                                    <div class="h-12 w-12 rounded-full bg-red-50 flex items-center justify-center">
+                                        <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                                    </div>
+                                </div>
+                                <div class="mt-6 space-y-3">
                                     <?php if (empty($low_stock)): ?>
-                                        <p class="text-sm text-gray-500">No low stock items at the moment.</p>
+                                        <p class="text-sm text-gray-500 text-center py-2">All items are well stocked</p>
                                     <?php else: ?>
-                                        <div class="space-y-3">
-                                            <?php foreach ($low_stock as $item): ?>
-                                                <div class="flex justify-between items-center p-3 bg-amber-50 rounded-lg hover:bg-amber-100 transition">
-                                                    <div>
-                                                        <p class="text-sm font-medium text-amber-600"><?= htmlspecialchars($item['item_name']) ?></p>
-                                                        <p class="text-xs text-gray-500">
-                                                            Quantity: <?= number_format($item['quantity'], 2) ?> <?= htmlspecialchars($item['unit']) ?> (Reorder at: <?= number_format($item['reorder_level'], 2) ?>)
-                                                        </p>
-                                                    </div>
-                                                    <button onclick='openManageInventoryModal(<?= json_encode($item) ?>)' class="text-sm text-amber-600 hover:text-amber-700 flex items-center">
-                                                        <i class="fas fa-cogs mr-1"></i> Manage
-                                                    </button>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-
-                                <!-- Manager: Recent Feedback -->
-                                <div class="bg-white rounded-lg shadow p-6 lg:col-span-2 card animate-fade-in">
-                                    <h2 class="text-lg font-semibold text-amber-600 mb-4 flex items-center">
-                                        <i class="fas fa-comment-dots mr-2"></i> Recent Feedback
-                                    </h2>
-                                    <?php if (empty($recent_feedback)): ?>
-                                        <p class="text-sm text-gray-500">No recent feedback available.</p>
-                                    <?php else: ?>
-                                        <div class="overflow-x-auto">
-                                            <table class="min-w-full divide-y divide-amber-100">
-                                                <thead>
-                                                    <tr>
-                                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
-                                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comment</th>
-                                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody class="divide-y divide-amber-50">
-                                                    <?php foreach ($recent_feedback as $feedback): ?>
-                                                        <tr class="hover:bg-amber-50 transition">
-                                                            <td class="px-4 py-3 text-sm text-gray-600">
-                                                                <?= htmlspecialchars($feedback['first_name'] . ' ' . $feedback['last_name']) ?>
-                                                            </td>
-                                                            <td class="px-4 py-3 text-sm text-amber-600">
-                                                                <div class="flex items-center">
-                                                                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                                                                        <i class="fas fa-star <?= $i <= $feedback['rating'] ? 'text-amber-400' : 'text-gray-300' ?>"></i>
-                                                                    <?php endfor; ?>
-                                                                </div>
-                                                            </td>
-                                                            <td class="px-4 py-3 text-sm text-gray-600">
-                                                                <?= htmlspecialchars($feedback['comment'] ?? 'No comment') ?>
-                                                            </td>
-                                                            <td class="px-4 py-3 text-sm text-gray-600">
-                                                                <?= date('M d, Y H:i', strtotime($feedback['feedback_date'])) ?>
-                                                            </td>
-                                                        </tr>
-                                                    <?php endforeach; ?>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                            <?php endif; ?>
-
-                            <?php if ($is_staff): ?>
-                                <!-- Staff: Pending Orders -->
-                                <div class="bg-white rounded-lg shadow p-6 card animate-fade-in">
-                                    <h2 class="text-lg font-semibold text-amber-600 mb-4 flex items-center">
-                                        <i class="fas fa-clipboard-list mr-2"></i> Pending Orders
-                                    </h2>
-                                    <?php if (empty($pending_orders)): ?>
-                                        <p class="text-sm text-gray-500">No pending orders at the moment.</p>
-                                    <?php else: ?>
-                                        <div class="space-y-3">
-                                            <?php foreach ($pending_orders as $order): ?>
-                                                <div class="flex justify-between items-center p-3 bg-amber-50 rounded-lg hover:bg-amber-100 transition">
-                                                    <div>
-                                                        <p class="text-sm font-medium text-amber-600">
-                                                            Order #<?= $order['order_id'] ?> - <?= htmlspecialchars($order['order_type']) ?>
-                                                        </p>
-                                                        <p class="text-xs text-gray-500">
-                                                            Customer: <?= htmlspecialchars($order['first_name'] . ' ' . $order['last_name']) ?>
-                                                            | Status:
-                                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium <?= $order['status'] === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800' ?>">
-                                                                <?= htmlspecialchars($order['status']) ?>
-                                                            </span>
-                                                            | <?= date('M d, Y H:i', strtotime($order['created_at'])) ?>
-                                                        </p>
-                                                    </div>
-                                                    <div class="flex items-center space-x-2">
-                                                        <form method="POST" action="dashboard.php">
-                                                            <input type="hidden" name="csrf_token" value="<?= generate_csrf_token() ?>">
-                                                            <input type="hidden" name="order_id" value="<?= $order['order_id'] ?>">
-                                                            <select name="new_status" class="px-2 py-1 border border-amber-200 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500 text-sm">
-                                                                <option value="Pending" <?= $order['status'] === 'Pending' ? 'selected' : '' ?>>Pending</option>
-                                                                <option value="Processing" <?= $order['status'] === 'Processing' ? 'selected' : '' ?>>Processing</option>
-                                                                <option value="Ready">Ready</option>
-                                                                <option value="Completed">Completed</option>
-                                                                <option value="Cancelled">Cancelled</option>
-                                                            </select>
-                                                            <button type="submit" class="ml-2 bg-amber-600 hover:bg-amber-500 text-white font-semibold py-1 px-3 rounded transition duration-300 text-sm">
-                                                                Update
-                                                            </button>
-                                                        </form>
-                                                        <a href="/modules/staff/orders.php?id=<?= $order['order_id'] ?>" class="text-sm text-amber-600 hover:text-amber-700 flex items-center">
-                                                            <i class="fas fa-eye mr-1"></i> View
-                                                        </a>
-                                                    </div>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-
-                                <!-- Staff: Table Status -->
-                                <div class="bg-white rounded-lg shadow p-6 card animate-fade-in">
-                                    <h2 class="text-lg font-semibold text-amber-600 mb-4 flex items-center">
-                                        <i class="fas fa-chair mr-2"></i> Table Status
-                                    </h2>
-                                    <?php if (empty($table_status)): ?>
-                                        <p class="text-sm text-gray-500">No tables available.</p>
-                                    <?php else: ?>
-                                        <div class="space-y-3">
-                                            <?php foreach ($table_status as $table): ?>
-                                                <div class="flex justify-between items-center p-3 bg-amber-50 rounded-lg hover:bg-amber-100 transition">
-                                                    <div>
-                                                        <p class="text-sm font-medium text-amber-600">
-                                                            Table <?= htmlspecialchars($table['table_number']) ?>
-                                                        </p>
-                                                        <p class="text-xs text-gray-500">
-                                                            Capacity: <?= $table['capacity'] ?> | Status:
-                                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium <?= $table['status'] === 'Available' ? 'bg-green-100 text-green-800' : ($table['status'] === 'Occupied' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800') ?>">
-                                                                <?= htmlspecialchars($table['status']) ?>
-                                                            </span>
-                                                        </p>
-                                                    </div>
-                                                    <button onclick='openManageTableModal(<?= json_encode($table) ?>)' class="text-sm text-amber-600 hover:text-amber-700 flex items-center">
-                                                        <i class="fas fa-cogs mr-1"></i> Manage
-                                                    </button>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-
-                                <!-- Staff: Active Promotions -->
-                                <div class="bg-white rounded-lg shadow p-6 card animate-fade-in">
-                                    <h2 class="text-lg font-semibold text-amber-600 mb-4 flex items-center">
-                                        <i class="fas fa-tags mr-2"></i> Active Promotions
-                                    </h2>
-                                    <?php if (empty($active_promotions)): ?>
-                                        <p class="text-sm text-gray-500">No active promotions at the moment.</p>
-                                    <?php else: ?>
-                                        <div class="space-y-3">
-                                            <?php foreach ($active_promotions as $promo): ?>
-                                                <div class="flex justify-between items-center p-3 bg-amber-50 rounded-lg hover:bg-amber-100 transition">
-                                                    <div>
-                                                        <p class="text-sm font-medium text-amber-600">
-                                                            <?= htmlspecialchars($promo['name']) ?>
-                                                        </p>
-                                                        <p class="text-xs text-gray-500">
-                                                            <?php
-                                                            $discount = $promo['discount_type'] === 'Percentage'
-                                                                ? $promo['discount_value'] . '% off'
-                                                                : '₱' . number_format($promo['discount_value'], 2);
-                                                            ?>
-                                                            Discount: <?= $discount ?> | Ends: <?= date('M d, Y', strtotime($promo['end_date'])) ?>
-                                                        </p>
-                                                    </div>
-                                                    <a href="/promotions.php" class="text-sm text-amber-600 hover:text-amber-700 flex items-center">
-                                                        <i class="fas fa-eye mr-1"></i> View
-                                                    </a>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                            <?php endif; ?>
-
-                            <!-- Common: Staff Schedule -->
-                            <div class="bg-white rounded-lg shadow p-6 card animate-fade-in">
-                                <h2 class="text-lg font-semibold text-amber-600 mb-4 flex items-center">
-                                    <i class="fas fa-calendar-alt mr-2"></i> <?= $is_manager ? 'Staff Schedules' : 'My Schedule' ?>
-                                </h2>
-                                <?php if (empty($schedule)): ?>
-                                    <p class="text-sm text-gray-500">No schedule available.</p>
-                                <?php else: ?>
-                                    <div class="space-y-3">
-                                        <?php foreach ($schedule as $shift): ?>
-                                            <div class="flex justify-between items-center p-3 bg-amber-50 rounded-lg hover:bg-amber-100 transition">
+                                        <?php foreach (array_slice($low_stock, 0, 3) as $item): ?>
+                                            <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
                                                 <div>
-                                                    <p class="text-sm font-medium text-amber-600">
-                                                        <?= htmlspecialchars($shift['day_of_week']) ?>
-                                                        <?php if ($is_manager): ?>
-                                                            - <?= htmlspecialchars($shift['first_name'] . ' ' . $shift['last_name']) ?>
-                                                        <?php endif; ?>
-                                                    </p>
-                                                    <p class="text-xs text-gray-500">
-                                                        <?= date('h:i A', strtotime($shift['start_time'])) ?> -
-                                                        <?= date('h:i A', strtotime($shift['end_time'])) ?>
-                                                    </p>
+                                                    <p class="text-sm font-medium text-gray-900"><?= htmlspecialchars($item['item_name']) ?></p>
+                                                    <p class="text-xs text-gray-500"><?= number_format($item['quantity'], 2) ?> <?= htmlspecialchars($item['unit']) ?></p>
                                                 </div>
-                                                <a href="/schedules.php" class="text-sm text-amber-600 hover:text-amber-700 flex items-center">
-                                                    <i class="fas fa-eye mr-1"></i> View All
-                                                </a>
+                                                <button onclick='openManageInventoryModal(<?= json_encode($item) ?>)' class="text-xs px-2 py-1 rounded-md bg-primary-50 text-primary-600 hover:bg-primary-100">
+                                                    Manage
+                                                </button>
                                             </div>
                                         <?php endforeach; ?>
+                                        <?php if (count($low_stock) > 3): ?>
+                                            <a href="/modules/staff/inventory.php" class="block text-center text-xs text-primary-600 hover:text-primary-700 mt-2">
+                                                View all <?= count($low_stock) ?> items
+                                            </a>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ($is_staff): ?>
+                            <!-- Staff: Pending Orders Card -->
+                            <div class="bg-white rounded-xl shadow-sm p-6 card animate-fade-in">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Pending Orders</p>
+                                        <p class="mt-1 text-3xl font-semibold text-gray-900"><?= count($pending_orders) ?></p>
                                     </div>
+                                    <div class="h-12 w-12 rounded-full bg-yellow-50 flex items-center justify-center">
+                                        <i class="fas fa-clipboard-list text-yellow-600 text-xl"></i>
+                                    </div>
+                                </div>
+                                <div class="mt-6 space-y-3">
+                                    <?php if (empty($pending_orders)): ?>
+                                        <p class="text-sm text-gray-500 text-center py-2">No pending orders</p>
+                                    <?php else: ?>
+                                        <?php foreach (array_slice($pending_orders, 0, 3) as $order): ?>
+                                            <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
+                                                <div>
+                                                    <p class="text-sm font-medium text-gray-900">Order #<?= $order['order_id'] ?></p>
+                                                    <p class="text-xs text-gray-500"><?= htmlspecialchars($order['first_name'] . ' ' . $order['last_name']) ?></p>
+                                                </div>
+                                                <span class="text-xs px-2 py-1 rounded-full <?= $order['status'] === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800' ?>">
+                                                    <?= htmlspecialchars($order['status']) ?>
+                                                </span>
+                                            </div>
+                                        <?php endforeach; ?>
+                                        <a href="/modules/staff/orders.php" class="block text-center text-xs text-primary-600 hover:text-primary-700 mt-2">
+                                            View all orders
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- Common: Schedule Card -->
+                        <div class="bg-white rounded-xl shadow-sm p-6 card animate-fade-in">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500"><?= $is_manager ? 'Staff Schedules' : 'My Schedule' ?></p>
+                                    <p class="mt-1 text-xl font-semibold text-gray-900">This Week</p>
+                                </div>
+                                <div class="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
+                                    <i class="fas fa-calendar-alt text-blue-600 text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="mt-6 space-y-3">
+                                <?php if (empty($schedule)): ?>
+                                    <p class="text-sm text-gray-500 text-center py-2">No scheduled shifts</p>
+                                <?php else: ?>
+                                    <?php foreach ($schedule as $shift): ?>
+                                        <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
+                                            <div>
+                                                <p class="text-sm font-medium text-gray-900"><?= htmlspecialchars($shift['day_of_week']) ?></p>
+                                                <?php if ($is_manager): ?>
+                                                    <p class="text-xs text-gray-500"><?= htmlspecialchars($shift['first_name'] . ' ' . $shift['last_name']) ?></p>
+                                                <?php endif; ?>
+                                            </div>
+                                            <p class="text-xs font-medium text-gray-700">
+                                                <?= date('g:i A', strtotime($shift['start_time'])) ?> - <?= date('g:i A', strtotime($shift['end_time'])) ?>
+                                            </p>
+                                        </div>
+                                    <?php endforeach; ?>
+                                    <a href="/modules/staff/schedules.php" class="block text-center text-xs text-primary-600 hover:text-primary-700 mt-2">
+                                        View full schedule
+                                    </a>
                                 <?php endif; ?>
                             </div>
                         </div>
+
+                        <?php if ($is_manager): ?>
+                            <!-- Manager: Recent Feedback Card -->
+                            <div class="bg-white rounded-xl shadow-sm p-6 lg:col-span-2 card animate-fade-in">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Recent Customer Feedback</p>
+                                        <p class="mt-1 text-xl font-semibold text-gray-900">Last 5 Reviews</p>
+                                    </div>
+                                    <a href="/modules/staff/feedback.php" class="text-xs text-primary-600 hover:text-primary-700">
+                                        View all
+                                    </a>
+                                </div>
+                                <div class="mt-6">
+                                    <?php if (empty($recent_feedback)): ?>
+                                        <p class="text-sm text-gray-500 text-center py-4">No recent feedback</p>
+                                    <?php else: ?>
+                                        <div class="space-y-4">
+                                            <?php foreach ($recent_feedback as $feedback): ?>
+                                                <div class="flex items-start space-x-4 p-3 hover:bg-gray-50 rounded-lg">
+                                                    <div class="flex-shrink-0">
+                                                        <div class="h-10 w-10 rounded-full bg-primary-50 flex items-center justify-center">
+                                                            <i class="fas fa-user text-primary-600"></i>
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-sm font-medium text-gray-900">
+                                                            <?= htmlspecialchars($feedback['first_name'] . ' ' . $feedback['last_name']) ?>
+                                                        </p>
+                                                        <div class="flex items-center mt-1">
+                                                            <?php for ($i = 1; $i <= 5; $i++): ?>
+                                                                <i class="fas fa-star text-xs <?= $i <= $feedback['rating'] ? 'text-yellow-400' : 'text-gray-300' ?>"></i>
+                                                            <?php endfor; ?>
+                                                            <span class="ml-2 text-xs text-gray-500">
+                                                                <?= date('M j, Y', strtotime($feedback['feedback_date'])) ?>
+                                                            </span>
+                                                        </div>
+                                                        <p class="mt-1 text-sm text-gray-600">
+                                                            <?= htmlspecialchars($feedback['comment'] ?? 'No comment provided') ?>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ($is_staff): ?>
+                            <!-- Staff: Table Status Card -->
+                            <div class="bg-white rounded-xl shadow-sm p-6 card animate-fade-in">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Table Status</p>
+                                        <p class="mt-1 text-xl font-semibold text-gray-900">Restaurant Floor</p>
+                                    </div>
+                                    <a href="/modules/staff/tables.php" class="text-xs text-primary-600 hover:text-primary-700">
+                                        View all
+                                    </a>
+                                </div>
+                                <div class="mt-6">
+                                    <?php if (empty($table_status)): ?>
+                                        <p class="text-sm text-gray-500 text-center py-2">No tables available</p>
+                                    <?php else: ?>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <?php foreach ($table_status as $table): ?>
+                                                <div class="p-3 rounded-lg border <?= $table['status'] === 'Available' ? 'border-green-200 bg-green-50' : ($table['status'] === 'Occupied' ? 'border-red-200 bg-red-50' : 'border-yellow-200 bg-yellow-50') ?>">
+                                                    <div class="flex items-center justify-between">
+                                                        <p class="text-sm font-medium text-gray-900">Table <?= $table['table_number'] ?></p>
+                                                        <span class="text-xs px-2 py-1 rounded-full <?= $table['status'] === 'Available' ? 'bg-green-100 text-green-800' : ($table['status'] === 'Occupied' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800') ?>">
+                                                            <?= htmlspecialchars($table['status']) ?>
+                                                        </span>
+                                                    </div>
+                                                    <p class="mt-1 text-xs text-gray-500">Capacity: <?= $table['capacity'] ?> people</p>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
+                            <!-- Staff: Promotions Card -->
+                            <div class="bg-white rounded-xl shadow-sm p-6 card animate-fade-in">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-500">Active Promotions</p>
+                                        <p class="mt-1 text-xl font-semibold text-gray-900">Special Offers</p>
+                                    </div>
+                                    <a href="/modules/staff/promotions.php" class="text-xs text-primary-600 hover:text-primary-700">
+                                        View all
+                                    </a>
+                                </div>
+                                <div class="mt-6 space-y-3">
+                                    <?php if (empty($active_promotions)): ?>
+                                        <p class="text-sm text-gray-500 text-center py-2">No active promotions</p>
+                                    <?php else: ?>
+                                        <?php foreach ($active_promotions as $promo): ?>
+                                            <div class="p-3 rounded-lg bg-gradient-to-r from-primary-50 to-amber-50 border border-primary-100">
+                                                <p class="text-sm font-medium text-gray-900"><?= htmlspecialchars($promo['name']) ?></p>
+                                                <p class="mt-1 text-xs text-gray-600">
+                                                    <?php
+                                                    $discount = $promo['discount_type'] === 'Percentage'
+                                                        ? $promo['discount_value'] . '% off'
+                                                        : '₱' . number_format($promo['discount_value'], 2) . ' off';
+                                                    ?>
+                                                    <?= $discount ?> • Ends <?= date('M j', strtotime($promo['end_date'])) ?>
+                                                </p>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </main>
@@ -646,6 +734,22 @@ include __DIR__ . '/includes/header.php';
     </div>
 
     <script>
+        // Toggle sidebar on mobile
+        document.getElementById('sidebar-toggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+        });
+
+        // Toggle user menu
+        document.getElementById('user-menu-button').addEventListener('click', function() {
+            document.getElementById('user-menu').classList.toggle('hidden');
+        });
+
+        // Close user menu when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('#user-menu-button') && !event.target.closest('#user-menu')) {
+                document.getElementById('user-menu').classList.add('hidden');
+            }
+        });
         // User menu toggle
         const userMenuButton = document.getElementById('userMenuButton');
         const userMenu = document.getElementById('userMenu');

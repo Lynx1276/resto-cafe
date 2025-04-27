@@ -9,8 +9,10 @@ $conn = db_connect();
 $user = get_user_by_id($user_id);
 $customer = get_customer_data($user_id);
 
-$page_title = "Profile";
-$current_page = "profile";
+    $page_title = "Dashboard";
+    $current_page = "dashboard";
+
+    $is_home = false;
 
 // Handle profile update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
