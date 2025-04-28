@@ -92,7 +92,7 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
                 <div class="flex space-x-7">
                     <div>
                         <!-- Logo -->
-                        <a href="#" class="flex items-center py-4 px-2">
+                        <a href="index.php" class="flex items-center py-4 px-2">
                             <i class="fas fa-mug-hot text-amber-600 text-2xl mr-1"></i>
                             <span class="font-semibold text-amber-600 text-lg">Casa Baraka</span>
                         </a>

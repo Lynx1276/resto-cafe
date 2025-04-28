@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
         if (isset($_SESSION['login_attempts'])) {
             if ($_SESSION['login_attempts'] >= 5) {
                 set_flash_message('Too many attempts. Please try again later.', 'error');
-                header('Location: login.php');
+                header('Location: /../../../index.php');
                 exit();
             }
         }
@@ -155,7 +155,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Enhanced viewport meta tag -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Login - Casa Baraka</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -204,6 +205,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
             background-color: rgba(255, 255, 255, 0.85);
             border-radius: 1rem;
             overflow: hidden;
+            width: 95%;
+            max-width: 28rem;
+            margin: 1rem auto;
         }
 
         .input-field:focus {
@@ -235,11 +239,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
         .password-toggle:hover {
             color: #D97706;
         }
+
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+            .login-container {
+                border-radius: 0.75rem;
+            }
+
+            .amber-gradient {
+                padding: 1.5rem;
+            }
+
+            .login-form-container {
+                padding: 1.5rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .login-container {
+                width: 100%;
+                border-radius: 0;
+                margin: 0;
+                min-height: 100vh;
+            }
+
+            body {
+                display: block;
+            }
+        }
     </style>
 </head>
 
-<body class="flex items-center justify-center p-4 md:p-0">
-    <div class="login-container shadow-2xl w-full max-w-md flex flex-col">
+<body class="flex items-center justify-center p-4 md:p-8">
+    <div class="login-container shadow-2xl flex flex-col">
         <!-- Logo Header -->
         <div class="amber-gradient p-6 text-center">
             <div class="bg-white bg-opacity-20 p-4 inline-block rounded-full shadow-inner-lg mb-2">
@@ -250,21 +286,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
         </div>
 
         <!-- Login Form Container -->
-        <div class="p-8">
+        <div class="p-6 sm:p-8">
             <h2 class="text-2xl font-semibold text-amber-darkest mb-1">Welcome Back</h2>
-            <p class="text-gray-600 text-sm mb-6">Sign in to your account to continue</p>
+            <p class="text-gray-600 text-sm mb-4 sm:mb-6">Sign in to your account to continue</p>
 
             <?php display_flash_message(); ?>
 
             <!-- Admin login notice -->
             <?php if (isset($_GET['admin']) && $_GET['admin'] == 1): ?>
-                <div class="admin-notice bg-amber-50 p-4 rounded-lg mb-6 text-sm flex items-start">
+                <div class="admin-notice bg-amber-50 p-3 sm:p-4 rounded-lg mb-4 sm:mb-6 text-sm flex items-start">
                     <i class="fas fa-shield-alt text-amber-dark mt-0.5 mr-3"></i>
                     <p class="text-amber-darkest">You are accessing the admin login. Staff members should use their regular credentials.</p>
                 </div>
             <?php endif; ?>
 
-            <form action="login.php<?php echo isset($_GET['admin']) ? '?admin=1' : ''; ?>" method="POST" class="space-y-5">
+            <form action="login.php<?php echo isset($_GET['admin']) ? '?admin=1' : ''; ?>" method="POST" class="space-y-4 sm:space-y-5">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
 
                 <div>
@@ -274,7 +310,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
                             <i class="fas fa-user"></i>
                         </span>
                         <input type="text" id="username" name="username" required
-                            class="input-field pl-10 w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none transition-colors duration-200"
+                            class="input-field pl-10 w-full px-3 py-2 sm:px-4 sm:py-2.5 border border-gray-300 rounded-lg focus:outline-none transition-colors duration-200"
                             value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
                     </div>
                 </div>
@@ -289,8 +325,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
                             <i class="fas fa-lock"></i>
                         </span>
                         <input type="password" id="password" name="password" required
-                            class="input-field pl-10 w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none transition-colors duration-200">
-                        <button type="button" class="password-toggle absolute right-3 top-3 text-gray-400"
+                            class="input-field pl-10 w-full px-3 py-2 sm:px-4 sm:py-2.5 border border-gray-300 rounded-lg focus:outline-none transition-colors duration-200">
+                        <button type="button" class="password-toggle absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
                             onclick="togglePasswordVisibility('password')">
                             <i class="far fa-eye"></i>
                         </button>
@@ -304,18 +340,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
                 </div>
 
                 <button type="submit"
-                    class="login-btn w-full amber-gradient text-white font-medium py-2.5 px-4 rounded-lg">
+                    class="login-btn w-full amber-gradient text-white font-medium py-2 sm:py-2.5 px-4 rounded-lg">
                     Sign In
                 </button>
             </form>
 
             <!-- Verification Link Section -->
-            <div class="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+            <div class="mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <h3 class="text-sm font-medium text-amber-darkest mb-2">Need a verification link?</h3>
                 <form action="resend-verification.php" method="POST" id="resendVerificationForm">
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
 
-                    <div class="relative mb-3">
+                    <div class="relative mb-2 sm:mb-3">
                         <input type="email" id="resend_email" name="email" required placeholder="Enter your email address"
                             class="input-field w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none">
                     </div>
@@ -328,12 +364,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
             </div>
 
             <!-- Footer Links -->
-            <div class="mt-6 text-center">
+            <div class="mt-4 sm:mt-6 text-center">
                 <?php if (isset($_GET['admin']) && $_GET['admin'] == 1): ?>
                     <p class="text-gray-600 text-sm">Not an admin? <a href="login.php" class="text-amber-600 hover:text-amber-700 font-medium">Regular login</a></p>
                 <?php else: ?>
                     <p class="text-gray-600 text-sm">Don't have an account? <a href="register.php" class="text-amber-600 hover:text-amber-700 font-medium">Sign up</a></p>
-                    <p class="text-gray-600 text-sm mt-2">Staff member? <a href="login.php?admin=1" class="text-amber-600 hover:text-amber-700 font-medium">Admin login</a></p>
+                    <p class="text-gray-600 text-sm mt-1 sm:mt-2">Staff member? <a href="login.php?admin=1" class="text-amber-600 hover:text-amber-700 font-medium">Admin login</a></p>
                 <?php endif; ?>
             </div>
         </div>

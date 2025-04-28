@@ -68,70 +68,7 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Poppins', sans-serif;
-            scroll-behavior: smooth;
-        }
-
-        .hero-section {
-            background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('assets/images/cafe-bg.jpg');
-            background-size: cover;
-            background-position: center;
-            height: 80vh;
-        }
-
-        .menu-card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .menu-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-        }
-
-        .modal-backdrop {
-            background-color: rgba(0, 0, 0, 0.5);
-        }
-
-        /* Line clamp for text truncation */
-        .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .line-clamp-3 {
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-left-color: #ca8a04;
-            border-radius: 50%;
-            width: 36px;
-            height: 36px;
-            animation: spin 1s linear infinite;
-        }
-
-        .animate-spin {
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            from {
-                transform: rotate(0deg);
-            }
-
-            to {
-                transform: rotate(360deg);
-            }
-        }
-    </style>
+    <link href="/assets/css/index.css" rel="stylesheet">
 </head>
 
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
@@ -174,7 +111,7 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
                 </div>
                 <!-- Mobile button -->
                 <div class="md:hidden flex items-center">
-                    <button class="outline-none mobile-menu-button">
+                    <button class="outline-none mobile-menu-button" aria-label="Toggle menu">
                         <i class="fas fa-bars text-amber-600 text-2xl"></i>
                     </button>
                 </div>
@@ -220,7 +157,7 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
                 <h2 class="text-4xl font-bold text-gray-800 mb-4">Most Loved Items</h2>
                 <div class="w-24 h-1 bg-amber-500 mx-auto"></div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 <?php
                 $featured_items = get_menu_items(null, true); // Fetch available items
                 $count = 0;
@@ -566,7 +503,7 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
     <section class="py-16 bg-gray-50">
         <div class="container mx-auto px-4">
             <h2 class="text-3xl font-bold text-center mb-12">What Our Customers Say</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <!-- Testimonial 1 -->
                 <div class="bg-white p-6 rounded-lg shadow-md">
                     <div class="flex text-amber-500 mb-4">
@@ -843,6 +780,12 @@ $cart_item_count = is_logged_in() ? get_cart_item_count() : 0;
                 });
             });
         })();
+
+        document.querySelector('.mobile-menu-button').addEventListener('click', function() {
+            const menu = document.querySelector('.mobile-menu');
+            menu.classList.toggle('active');
+            menu.classList.toggle('hidden');
+        });
     </script>
 </body>
 

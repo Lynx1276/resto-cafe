@@ -88,7 +88,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Enhanced viewport meta tag -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Register - Casa Baraka</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -100,6 +101,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background-size: cover;
             background-position: center;
             min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .registration-container {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 32rem;
+            margin: 2rem auto;
+            overflow: hidden;
         }
 
         .password-strength {
@@ -107,66 +119,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin-top: 4px;
             transition: all 0.3s ease;
         }
+
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+            .registration-container {
+                padding: 1.5rem;
+            }
+
+            .grid-cols-2 {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+            }
+
+            .text-3xl {
+                font-size: 1.5rem;
+            }
+        }
+
+        @media (max-width: 400px) {
+            body {
+                padding: 0;
+            }
+
+            .registration-container {
+                border-radius: 0;
+                margin: 0;
+                min-height: 100vh;
+            }
+        }
     </style>
 </head>
 
 <body class="flex items-center justify-center">
-    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-        <div class="text-center mb-8">
-            <i class="fas fa-mug-hot text-amber-600 text-4xl mb-2"></i>
-            <h1 class="text-3xl font-bold text-gray-800">Create Account</h1>
-            <p class="text-gray-600">Join Casa Baraka today</p>
+    <div class="registration-container p-6 sm:p-8">
+        <div class="text-center mb-6 sm:mb-8">
+            <i class="fas fa-mug-hot text-amber-600 text-3xl sm:text-4xl mb-2"></i>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Create Account</h1>
+            <p class="text-gray-600 text-sm sm:text-base">Join Casa Baraka today</p>
         </div>
 
         <?php display_flash_message(); ?>
 
-        <form action="register.php" method="POST" class="space-y-4" id="registrationForm">
+        <form action="register.php" method="POST" class="space-y-3 sm:space-y-4" id="registrationForm">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                    <label for="first_name" class="block text-gray-700 mb-2">First Name*</label>
+                    <label for="first_name" class="block text-gray-700 text-sm sm:text-base mb-1 sm:mb-2">First Name*</label>
                     <input type="text" id="first_name" name="first_name" required
-                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm sm:text-base"
                         value="<?php echo htmlspecialchars($_POST['first_name'] ?? ''); ?>">
                 </div>
                 <div>
-                    <label for="last_name" class="block text-gray-700 mb-2">Last Name*</label>
+                    <label for="last_name" class="block text-gray-700 text-sm sm:text-base mb-1 sm:mb-2">Last Name*</label>
                     <input type="text" id="last_name" name="last_name" required
-                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm sm:text-base"
                         value="<?php echo htmlspecialchars($_POST['last_name'] ?? ''); ?>">
                 </div>
             </div>
 
             <div>
-                <label for="username" class="block text-gray-700 mb-2">Username*</label>
+                <label for="username" class="block text-gray-700 text-sm sm:text-base mb-1 sm:mb-2">Username*</label>
                 <input type="text" id="username" name="username" required
-                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm sm:text-base"
                     value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
             </div>
 
             <div>
-                <label for="email" class="block text-gray-700 mb-2">Email*</label>
+                <label for="email" class="block text-gray-700 text-sm sm:text-base mb-1 sm:mb-2">Email*</label>
                 <input type="email" id="email" name="email" required
-                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm sm:text-base"
                     value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
             </div>
 
             <div>
-                <label for="phone" class="block text-gray-700 mb-2">Phone (Required)</label>
+                <label for="phone" class="block text-gray-700 text-sm sm:text-base mb-1 sm:mb-2">Phone (Required)</label>
                 <input type="tel" id="phone" name="phone"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm sm:text-base"
                     value="<?php echo htmlspecialchars($_POST['phone'] ?? ''); ?>">
             </div>
 
             <div>
-                <label for="password" class="block text-gray-700 mb-2">Password*</label>
+                <label for="password" class="block text-gray-700 text-sm sm:text-base mb-1 sm:mb-2">Password*</label>
                 <div class="relative">
                     <input type="password" id="password" name="password" required
-                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500">
-                    <button type="button" class="absolute right-3 top-2 text-gray-500 hover:text-gray-700"
+                        class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm sm:text-base">
+                    <button type="button" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                         onclick="togglePasswordVisibility('password')">
-                        <i class="far fa-eye"></i>
+                        <i class="far fa-eye text-sm sm:text-base"></i>
                     </button>
                 </div>
                 <div id="password-strength" class="password-strength bg-gray-200 rounded-full"></div>
@@ -174,33 +214,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div>
-                <label for="confirm_password" class="block text-gray-700 mb-2">Confirm Password*</label>
+                <label for="confirm_password" class="block text-gray-700 text-sm sm:text-base mb-1 sm:mb-2">Confirm Password*</label>
                 <div class="relative">
                     <input type="password" id="confirm_password" name="confirm_password" required
-                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500">
-                    <button type="button" class="absolute right-3 top-2 text-gray-500 hover:text-gray-700"
+                        class="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm sm:text-base">
+                    <button type="button" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                         onclick="togglePasswordVisibility('confirm_password')">
-                        <i class="far fa-eye"></i>
+                        <i class="far fa-eye text-sm sm:text-base"></i>
                     </button>
                 </div>
                 <p id="password-match" class="text-xs mt-1 hidden"></p>
             </div>
 
-            <div class="flex items-center">
+            <div class="flex items-start">
                 <input type="checkbox" id="terms" name="terms" required
-                    class="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded">
-                <label for="terms" class="ml-2 block text-gray-700 text-sm">
+                    class="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded mt-1">
+                <label for="terms" class="ml-2 block text-gray-700 text-xs sm:text-sm">
                     I agree to the <a href="#" class="text-amber-600 hover:text-amber-500">Terms of Service</a> and <a href="#" class="text-amber-600 hover:text-amber-500">Privacy Policy</a>
                 </label>
             </div>
 
-            <button type="submit" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-medium py-2 px-4 rounded-md transition duration-300 mt-4">
+            <button type="submit" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-medium py-2 px-4 rounded-md transition duration-300 mt-3 sm:mt-4 text-sm sm:text-base">
                 Register
             </button>
         </form>
 
-        <div class="mt-6 text-center">
-            <p class="text-gray-600">Already have an account? <a href="login.php" class="text-amber-600 hover:text-amber-500 font-medium">Sign in</a></p>
+        <div class="mt-4 sm:mt-6 text-center">
+            <p class="text-gray-600 text-sm sm:text-base">Already have an account? <a href="login.php" class="text-amber-600 hover:text-amber-500 font-medium">Sign in</a></p>
         </div>
     </div>
 

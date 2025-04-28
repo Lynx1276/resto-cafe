@@ -123,7 +123,7 @@ $is_home = false;
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>My Dashboard - Casa Baraka</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -131,6 +131,50 @@ $is_home = false;
         /* Modal backdrop */
         .modal-backdrop {
             background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        @media (max-width: 1024px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 80%;
+                max-width: 300px;
+                height: 100vh;
+                z-index: 40;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                overflow-y: auto;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 30;
+                display: none;
+            }
+
+            .sidebar-overlay.open {
+                display: block;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .quick-actions a {
+                padding: 0.75rem;
+            }
+
+            .dashboard-card {
+                padding: 1rem;
+            }
         }
     </style>
 </head>
@@ -141,13 +185,14 @@ $is_home = false;
     <div class="container mx-auto px-4 py-8">
         <?php display_flash_message(); ?>
 
-        <div class="flex flex-col md:flex-row gap-6">
-            <!-- Sidebar -->
-            <div class="md:w-1/4">
-                <div class="bg-white rounded-xl shadow-md p-6 sticky top-24">
-                    <div class="text-center mb-6">
-                        <div class="w-24 h-24 bg-gradient-to-br from-amber-100 to-amber-200 rounded-full mx-auto mb-4 flex items-center justify-center shadow-inner">
-                            <i class="fas fa-user text-amber-600 text-3xl"></i>
+        <div class="flex flex-col lg:flex-row gap-6">
+            <!-- Sidebar - moves to top on mobile -->
+            <div class="lg:w-1/4 order-1 lg:order-none">
+                <div class="bg-white rounded-xl shadow-md p-4 lg:p-6 sticky top-24">
+                    <!-- Profile section -->
+                    <div class="text-center mb-4 lg:mb-6">
+                        <div class="w-16 h-16 lg:w-24 lg:h-24 bg-gradient-to-br from-amber-100 to-amber-200 rounded-full mx-auto mb-2 lg:mb-4 flex items-center justify-center shadow-inner">
+                            <i class="fas fa-user text-amber-600 text-xl lg:text-3xl"></i>
                         </div>
                         <h2 class="text-xl font-bold text-gray-800"><?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?></h2>
                         <p class="text-gray-500 text-sm">Member since <?= date('M Y', strtotime($user['created_at'])) ?></p>
@@ -180,7 +225,7 @@ $is_home = false;
             </div>
 
             <!-- Main Content -->
-            <div class="md:w-3/4">
+            <div class="lg:w-3/4 order-2 lg:order-none">
                 <!-- Welcome Banner -->
                 <div class="bg-gradient-to-r from-amber-500 to-amber-600 rounded-lg shadow p-6 text-white mb-6">
                     <h1 class="text-2xl font-bold mb-2">Welcome back, <?= htmlspecialchars($user['first_name']) ?>!</h1>
@@ -192,11 +237,11 @@ $is_home = false;
 
                 <!-- Quick Actions -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <a href="order.php" class="bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition">
+                    <a href="orders.php" class="bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition">
                         <div class="text-amber-600 text-3xl mb-2"><i class="fas fa-utensils"></i></div>
                         <h3 class="font-medium">Order Food</h3>
                     </a>
-                    <a href="reserve.php" class="bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition">
+                    <a href="reservation.php" class="bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition">
                         <div class="text-amber-600 text-3xl mb-2"><i class="fas fa-calendar-plus"></i></div>
                         <h3 class="font-medium">Make Reservation</h3>
                     </a>
@@ -470,6 +515,25 @@ $is_home = false;
 
     <?php require_once __DIR__ . '/../../includes/footer.php'; ?>
     <script>
+        // Mobile sidebar toggle
+        document.getElementById('mobileMenuToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('open');
+        });
+
+        document.getElementById('sidebarOverlay').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.remove('open');
+            this.classList.remove('open');
+        });
+
+        // Keep your existing modal toggle functions
+        window.toggleModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.toggle('hidden');
+            }
+        };
+
         // Mobile menu toggle
         (function() {
             const mobileMenuButton = document.querySelector('.mobile-menu-button');
